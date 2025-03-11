@@ -1,11 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, User, Menu, LogOut } from "lucide-react";
 import { useRouter } from "next/router";
-import { account } from "../utils/appwrite"; // Import Appwrite account instance
+import { account } from "../utils/appwrite"; // Import Appwrite instance
 
 const Navbar = ({ isAdmin = false, toggleSidebar }) => {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    // Fetch the logged-in user details
+    account.get()
+      .then((response) => setUser(response))
+      .catch(() => router.push("/login")); // Redirect if not logged in
+  }, []);
 
   const handleNotificationClick = () => {
     router.push(isAdmin ? "/admin/manage-notifications" : "/student/notifications");
@@ -13,7 +21,7 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
 
   const handleLogout = async () => {
     try {
-      await account.deleteSession("current"); // Destroy the active session
+      await account.deleteSession("current"); // Destroy session
       router.push("/login"); // Redirect to login page
     } catch (error) {
       console.error("Logout failed:", error.message);
@@ -47,7 +55,7 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
           >
             <div className="text-right">
               <p className="text-sm font-medium text-gray-700">
-                {isAdmin ? "Krishna" : "John Doe"}
+                {user ? user.name : "Loading..."} {/* Show username */}
               </p>
               <p className="text-xs text-gray-500">
                 {isAdmin ? "Administrator" : "Student"}
