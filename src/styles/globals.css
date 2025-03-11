@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ffffff; /* Light mode background */
+  --foreground: #d1cece; /* Set to pure black */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff; /* Dark mode background */
+    --foreground: #2d2c2c; /* Light gray for dark mode text */
   }
 }
 
