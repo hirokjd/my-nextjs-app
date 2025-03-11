@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Bell, User, Menu, LogOut } from "lucide-react";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import { account } from "../utils/appwrite"; // Import Appwrite account instance
 
 const Navbar = ({ isAdmin = false, toggleSidebar }) => {
   const router = useRouter();
@@ -11,8 +11,13 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
     router.push(isAdmin ? "/admin/manage-notifications" : "/student/notifications");
   };
 
-  const handleLogout = () => {
-    router.push("/login");
+  const handleLogout = async () => {
+    try {
+      await account.deleteSession("current"); // Destroy the active session
+      router.push("/login"); // Redirect to login page
+    } catch (error) {
+      console.error("Logout failed:", error.message);
+    }
     setIsDropdownOpen(false);
   };
 
@@ -42,7 +47,7 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
           >
             <div className="text-right">
               <p className="text-sm font-medium text-gray-700">
-                {isAdmin ? "Krishna" : "Arjun"}
+                {isAdmin ? "Krishna" : "John Doe"}
               </p>
               <p className="text-xs text-gray-500">
                 {isAdmin ? "Administrator" : "Student"}

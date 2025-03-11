@@ -4,28 +4,34 @@ import Sidebar from "../components/Sidebar";
 import "../styles/globals.css";
 import { useRouter } from "next/router";
 
-// Generic Layout Component
-const Layout = ({ children, isAdmin }) => {
+// Admin Layout Component
+const AdminLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar isAdmin={isAdmin} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      <Sidebar isAdmin={true} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <div className="flex-1">
-        <Navbar isAdmin={isAdmin} toggleSidebar={toggleSidebar} />
+        <Navbar isAdmin={true} toggleSidebar={toggleSidebar} />
         <div className="pt-16">{children}</div>
       </div>
     </div>
   );
 };
 
-// Default Layout (for non-admin and non-student pages)
-const DefaultLayout = ({ children }) => {
+// Student Layout Component
+const StudentLayout = ({ children }) => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
   return (
-    <div>
-      <Navbar isAdmin={false} toggleSidebar={() => {}} />
-      <div className="pt-16">{children}</div>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar isAdmin={false} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      <div className="flex-1">
+        <Navbar isAdmin={false} toggleSidebar={toggleSidebar} />
+        <div className="pt-16">{children}</div>
+      </div>
     </div>
   );
 };
@@ -34,35 +40,30 @@ const DefaultLayout = ({ children }) => {
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
 
-  // Determine the layout based on the route
+  // Determine if the page is an Admin or Student route
   const isAdminRoute = router.pathname.startsWith("/admin");
   const isStudentRoute = router.pathname.startsWith("/student");
-  const isExamsRoute = router.pathname.startsWith("/exams");
-  const isRootRoute = router.pathname === "/";
 
-  // Use the appropriate layout
+  // Admin Layout
   if (isAdminRoute) {
     return (
-      <Layout isAdmin={true}>
+      <AdminLayout>
         <Component {...pageProps} />
-      </Layout>
+      </AdminLayout>
     );
   }
 
-  if (isStudentRoute || isExamsRoute || isRootRoute) {
+  // Student Layout
+  if (isStudentRoute) {
     return (
-      <Layout isAdmin={false}>
+      <StudentLayout>
         <Component {...pageProps} />
-      </Layout>
+      </StudentLayout>
     );
   }
 
-  // Use DefaultLayout for other pages (e.g., login, certificates, etc.)
-  return (
-    <DefaultLayout>
-      <Component {...pageProps} />
-    </DefaultLayout>
-  );
+  // For other pages (like login, certificates, etc.), just render the component directly
+  return <Component {...pageProps} />;
 }
 
 export default MyApp;
