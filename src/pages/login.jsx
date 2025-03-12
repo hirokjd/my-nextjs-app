@@ -2,33 +2,41 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Lock, LogIn } from "lucide-react";
 import { useRouter } from "next/router";
-import { loginUser } from "../utils/auth";
+import { loginAdmin, loginStudent } from "../utils/auth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("admin"); // Only allowing Admin login for now
+  const [role, setRole] = useState("admin"); // Default to Admin
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
+  
     if (!email || !password) {
       alert("Please enter both email and password");
       return;
     }
-
+  
     try {
-      await loginUser(email, password);
       if (role === "admin") {
+        await loginAdmin(email, password);
         router.push("/admin/dashboard");
       } else {
-        alert("Student login is not available yet.");
+        const student = await loginStudent(email, password);
+        if (student) {
+          localStorage.setItem("studentSession", JSON.stringify(student)); // ✅ Store session
+          console.log("Student session saved:", student); // ✅ Debugging log
+          router.push("/student/dashboard");
+        } else {
+          alert("Invalid student credentials.");
+        }
       }
     } catch (error) {
       alert("Login failed: " + error.message);
     }
   };
+  
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600">
@@ -39,15 +47,13 @@ const Login = () => {
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-800">Admin Login</h2>
-          <p className="text-gray-500 mt-2">Access your admin dashboard</p>
+          <h2 className="text-3xl font-bold text-gray-800">{role === "admin" ? "Admin Login" : "Student Login"}</h2>
+          <p className="text-gray-500 mt-2">Access your {role} dashboard</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <div className="relative">
               <input
                 type="email"
@@ -63,9 +69,7 @@ const Login = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <div className="relative">
               <input
                 type="password"
@@ -78,6 +82,19 @@ const Login = () => {
                 <Lock size={18} className="text-gray-400" />
               </div>
             </div>
+          </div>
+
+          {/* Role Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Login As</label>
+            <select
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              <option value="admin">Admin</option>
+              <option value="student">Student</option>
+            </select>
           </div>
 
           <motion.button

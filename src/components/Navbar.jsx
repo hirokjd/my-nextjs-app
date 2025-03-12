@@ -1,32 +1,61 @@
 import React, { useState, useEffect } from "react";
-import { Bell, User, Menu, LogOut } from "lucide-react";
 import { useRouter } from "next/router";
-import { account } from "../utils/appwrite"; // Import Appwrite instance
+import { Bell, User, Menu, LogOut } from "lucide-react";
+import { account, databases } from "../utils/appwrite";
+import { Query } from "appwrite";
 
 const Navbar = ({ isAdmin = false, toggleSidebar }) => {
   const router = useRouter();
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
 
   useEffect(() => {
-    // Fetch the logged-in user details
-    account.get()
-      .then((response) => setUser(response))
-      .catch(() => router.push("/login")); // Redirect if not logged in
-  }, []);
+    if (isAdmin) {
+      account.get().then((res) => setUser(res)).catch(() => router.push("/login"));
+    } else {
+      const studentSession = localStorage.getItem("studentSession");
+      if (studentSession) {
+        setUser(JSON.parse(studentSession));
+      }
+    }
+  }, [isAdmin, router]);
+
+  // Fetch Notifications
+  const fetchNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const collectionId = isAdmin
+        ? process.env.NEXT_PUBLIC_APPWRITE_ADMIN_NOTIFICATIONS_COLLECTION_ID
+        : process.env.NEXT_PUBLIC_APPWRITE_STUDENT_NOTIFICATIONS_COLLECTION_ID;
+
+      const response = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
+        collectionId,
+        [Query.orderDesc("$createdAt")] // Latest first
+      );
+      setNotifications(response.documents);
+    } catch (error) {
+      console.error("Failed to load notifications:", error.message);
+    }
+    setLoadingNotifications(false);
+  };
 
   const handleNotificationClick = () => {
-    router.push(isAdmin ? "/admin/manage-notifications" : "/student/notifications");
+    setIsNotifOpen(!isNotifOpen);
+    if (!isNotifOpen) {
+      fetchNotifications(); // Load notifications when dropdown opens
+    }
   };
 
   const handleLogout = async () => {
-    try {
-      await account.deleteSession("current"); // Destroy session
-      router.push("/login"); // Redirect to login page
-    } catch (error) {
-      console.error("Logout failed:", error.message);
+    if (isAdmin) {
+      await account.deleteSession("current"); // ✅ Admin logout
     }
-    setIsDropdownOpen(false);
+    localStorage.removeItem("studentSession"); // ✅ Student logout
+    router.push("/login");
   };
 
   return (
@@ -37,15 +66,39 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
       </button>
 
       {/* Notifications & User Info */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 relative">
         {/* Notification Button */}
         <button
-          onClick={handleNotificationClick}
           className="relative p-2 rounded-full hover:bg-gray-100"
+          onClick={handleNotificationClick}
         >
           <Bell size={20} className="text-gray-600" />
-          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full"></span>
+          {notifications.length > 0 && (
+            <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full"></span>
+          )}
         </button>
+
+        {/* Notification Dropdown */}
+        {isNotifOpen && (
+          <div className="absolute right-10 top-12 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+            <div className="p-3 border-b bg-gray-100 font-medium">Notifications</div>
+            <div className="p-3 max-h-60 overflow-y-auto">
+              {loadingNotifications ? (
+                <p className="text-gray-500 text-sm">Loading notifications...</p>
+              ) : notifications.length === 0 ? (
+                <p className="text-gray-500 text-sm">No new notifications</p>
+              ) : (
+                notifications.map((notif) => (
+                  <div key={notif.$id} className="p-2 border-b last:border-none hover:bg-gray-100 rounded">
+                    <p className="text-sm font-medium">{notif.title}</p>
+                    <p className="text-xs text-gray-500">{notif.content}</p>
+                    <p className="text-xs text-gray-400">{new Date(notif.$createdAt).toLocaleString()}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* User Info with Dropdown */}
         <div className="relative">
@@ -54,21 +107,15 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
             className="flex items-center gap-3 hover:bg-gray-100 rounded-lg p-2"
           >
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-700">
-                {user ? user.name : "Loading..."} {/* Show username */}
-              </p>
-              <p className="text-xs text-gray-500">
-                {isAdmin ? "Administrator" : "Student"}
-              </p>
+              <p className="text-sm font-medium text-gray-700">{user ? user.name : "Guest"}</p>
+              <p className="text-xs text-gray-500">{isAdmin ? "Administrator" : "Student"}</p>
             </div>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isAdmin ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"
-            }`}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-600">
               <User size={20} />
             </div>
           </button>
 
-          {/* Dropdown Menu */}
+          {/* User Dropdown Menu */}
           {isDropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
               <button
@@ -82,14 +129,6 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
           )}
         </div>
       </div>
-
-      {/* Click outside to close dropdown */}
-      {isDropdownOpen && (
-        <div
-          className="fixed inset-0 z-10 bg-black/10"
-          onClick={() => setIsDropdownOpen(false)}
-        />
-      )}
     </div>
   );
 };

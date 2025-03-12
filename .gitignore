@@ -42,3 +42,8 @@ next-env.d.ts
 
 #config
 .env.local
+
+
+
+#others
+backup_temp

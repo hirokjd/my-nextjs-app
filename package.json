@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "appwrite": "^17.0.0",
+    "bcryptjs": "^3.0.2",
     "framer-motion": "^12.4.3",
     "lucide-react": "^0.475.0",
     "next": "15.1.7",
