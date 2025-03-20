@@ -1,3 +1,4 @@
+//src/utils/auth.js
 import { account, databases } from "./appwrite";
 import { Query } from "appwrite";
 

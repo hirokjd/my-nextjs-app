@@ -2,6 +2,7 @@
   "name": "my-nextjs-app",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,7 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "appwrite": "^17.0.0",
+    "appwrite": "^17.0.1",
     "bcryptjs": "^3.0.2",
     "framer-motion": "^12.4.3",
     "lucide-react": "^0.475.0",

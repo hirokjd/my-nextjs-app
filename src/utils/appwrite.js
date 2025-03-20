@@ -1,3 +1,4 @@
+//src/utils/appwrite.js
 import { Client, Account, Databases } from "appwrite";
 
 const client = new Client();

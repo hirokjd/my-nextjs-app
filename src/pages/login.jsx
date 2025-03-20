@@ -1,3 +1,4 @@
+//src/pages/login.js
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Lock, LogIn } from "lucide-react";
@@ -21,7 +22,8 @@ const Login = () => {
     try {
       if (role === "admin") {
         await loginAdmin(email, password);
-        router.push("/admin/dashboard");
+        // router.push("/admin/dashboard");
+        router.push("/admin");
       } else {
         const student = await loginStudent(email, password);
         if (student) {
