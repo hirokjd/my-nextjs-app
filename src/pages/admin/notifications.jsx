@@ -11,12 +11,14 @@ const NotificationsPage = () => {
   const [editingNotification, setEditingNotification] = useState(null);
   const [message, setMessage] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchNotifications();
   }, []);
 
   const fetchNotifications = async () => {
+    setLoading(true);
     try {
       const response = await databases.listDocuments(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
@@ -26,23 +28,29 @@ const NotificationsPage = () => {
     } catch (error) {
       console.error("Error fetching notifications:", error.message);
     }
+    setLoading(false);
   };
 
   const handleSave = async () => {
+    if (!message.trim()) {
+      alert("Notification message cannot be empty.");
+      return;
+    }
+
     try {
       if (editingNotification) {
         await databases.updateDocument(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
           process.env.NEXT_PUBLIC_APPWRITE_NOTIFICATIONS_COLLECTION_ID,
           editingNotification.$id,
-          { message, scheduleDate }
+          { message, scheduleDate: scheduleDate || null }
         );
       } else {
         await databases.createDocument(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
           process.env.NEXT_PUBLIC_APPWRITE_NOTIFICATIONS_COLLECTION_ID,
           ID.unique(),
-          { message, scheduleDate, status: "Scheduled" }
+          { message, scheduleDate: scheduleDate || null, status: "Scheduled" }
         );
       }
 
@@ -59,7 +67,7 @@ const NotificationsPage = () => {
   const handleEdit = (notification) => {
     setEditingNotification(notification);
     setMessage(notification.message);
-    setScheduleDate(notification.scheduleDate);
+    setScheduleDate(notification.scheduleDate || "");
     setModalOpen(true);
   };
 
@@ -80,37 +88,50 @@ const NotificationsPage = () => {
 
   return (
     <AdminLayout>
-      <h2 className="text-2xl font-bold mb-4">Manage Notifications</h2>
+      <h2 className="text-2xl font-bold mb-4">📢 Manage Notifications</h2>
 
       <button className="bg-blue-500 text-white px-4 py-2 rounded mb-4" onClick={() => setModalOpen(true)}>
-        + Add Notification
+        ➕ Add Notification
       </button>
 
-      {/* Notifications Table */}
-      <Table
-        data={notifications.map((n) => ({
-          Message: n.message,
-          "Scheduled Date": n.scheduleDate,
-          Status: n.status,
-          Actions: (
-            <div className="flex gap-2">
-              <button className="text-blue-500" onClick={() => handleEdit(n)}>✏️ Edit</button>
-              <button className="text-red-500" onClick={() => handleDelete(n.$id)}>🗑️ Delete</button>
-            </div>
-          ),
-        }))}
-      />
+      {loading ? (
+        <p>Loading notifications...</p>
+      ) : (
+        <Table
+          data={notifications.map((n) => ({
+            Message: n.message,
+            "Scheduled Date": n.scheduleDate ? new Date(n.scheduleDate).toLocaleString() : "Immediate",
+            Status: n.status,
+            Actions: (
+              <div className="flex gap-2">
+                <button className="text-blue-500" onClick={() => handleEdit(n)}>✏️ Edit</button>
+                <button className="text-red-500" onClick={() => handleDelete(n.$id)}>🗑️ Delete</button>
+              </div>
+            ),
+          }))}
+        />
+      )}
 
-      {/* Notification Modal */}
       {modalOpen && (
-        <Modal title={editingNotification ? "Edit Notification" : "Create Notification"} onClose={() => setModalOpen(false)} onSave={handleSave}>
-          <input
-            type="text"
+        <Modal
+          title={editingNotification ? "Edit Notification" : "Create Notification"}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingNotification(null);
+            setMessage("");
+            setScheduleDate("");
+          }}
+          onSave={handleSave}
+        >
+          <label className="block mb-1 font-semibold">Message</label>
+          <textarea
             placeholder="Notification message..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded mb-4"
           />
+          
+          <label className="block mb-1 font-semibold">📅 Schedule Notification (Optional)</label>
           <input
             type="datetime-local"
             value={scheduleDate}

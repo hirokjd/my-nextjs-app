@@ -9,6 +9,7 @@ const QuestionsPage = () => {
   const [questions, setQuestions] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     text: "",
     options: ["", "", "", ""],
@@ -22,6 +23,7 @@ const QuestionsPage = () => {
   }, []);
 
   const fetchQuestions = async () => {
+    setLoading(true);
     try {
       const response = await databases.listDocuments(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
@@ -31,6 +33,7 @@ const QuestionsPage = () => {
     } catch (error) {
       console.error("Error fetching questions:", error.message);
     }
+    setLoading(false);
   };
 
   const openModal = (question = null) => {
@@ -59,53 +62,85 @@ const QuestionsPage = () => {
           selectedQuestion.$id,
           formData
         );
+        alert("✅ Question updated successfully!");
       } else {
         await databases.createDocument(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
           process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID,
+          "unique()", // Ensure unique ID
           formData
         );
+        alert("✅ Question added successfully!");
       }
       setIsModalOpen(false);
       fetchQuestions();
     } catch (error) {
       console.error("Error saving question:", error.message);
+      alert("❌ Failed to save question.");
     }
   };
 
   const deleteQuestion = async (questionId) => {
-    if (confirm("Are you sure you want to delete this question?")) {
+    if (!window.confirm("⚠ Are you sure you want to delete this question?")) return;
+    try {
       await databases.deleteDocument(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
         process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID,
         questionId
       );
+      alert("✅ Question deleted successfully!");
       fetchQuestions();
+    } catch (error) {
+      console.error("Error deleting question:", error.message);
+      alert("❌ Failed to delete question.");
     }
   };
 
   return (
     <AdminLayout>
       <h2 className="text-2xl font-bold mb-4">Manage Questions</h2>
-      <button className="bg-blue-500 text-white px-4 py-2 rounded mb-4" onClick={() => openModal()}>
-        Add Question
+
+      <button
+        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+        onClick={() => openModal()}
+      >
+        ➕ Add Question
       </button>
-      <Table
-        data={questions.map((question) => ({
-          Question: question.text,
-          Difficulty: question.difficulty,
-          Category: question.category,
-          Actions: (
-            <>
-              <button className="text-blue-500 mr-2" onClick={() => openModal(question)}>Edit</button>
-              <button className="text-red-500" onClick={() => deleteQuestion(question.$id)}>Delete</button>
-            </>
-          ),
-        }))}
-      />
+
+      {loading ? (
+        <p>Loading questions...</p>
+      ) : (
+        <Table
+          data={questions.map((question) => ({
+            Question: question.text,
+            Difficulty: question.difficulty,
+            Category: question.category,
+            Actions: (
+              <>
+                <button
+                  className="text-blue-500 mr-2"
+                  onClick={() => openModal(question)}
+                >
+                  ✏ Edit
+                </button>
+                <button
+                  className="text-red-500"
+                  onClick={() => deleteQuestion(question.$id)}
+                >
+                  🗑 Delete
+                </button>
+              </>
+            ),
+          }))}
+        />
+      )}
+
       {isModalOpen && (
         <Modal onClose={() => setIsModalOpen(false)}>
-          <h3>{selectedQuestion ? "Edit Question" : "Add Question"}</h3>
+          <h3 className="text-lg font-semibold mb-3">
+            {selectedQuestion ? "Edit Question" : "Add Question"}
+          </h3>
+
           <input
             type="text"
             placeholder="Question Text"
@@ -113,6 +148,7 @@ const QuestionsPage = () => {
             onChange={(e) => setFormData({ ...formData, text: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
           />
+
           {formData.options.map((option, index) => (
             <input
               key={index}
@@ -127,6 +163,7 @@ const QuestionsPage = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
             />
           ))}
+
           <select
             value={formData.correctAnswer}
             onChange={(e) => setFormData({ ...formData, correctAnswer: parseInt(e.target.value) })}
@@ -134,19 +171,21 @@ const QuestionsPage = () => {
           >
             {formData.options.map((_, index) => (
               <option key={index} value={index + 1}>
-                Correct Answer: {index + 1}
+                ✅ Correct Answer: {index + 1}
               </option>
             ))}
           </select>
+
           <select
             value={formData.difficulty}
             onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
           >
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
+            <option value="Easy">🟢 Easy</option>
+            <option value="Medium">🟠 Medium</option>
+            <option value="Hard">🔴 Hard</option>
           </select>
+
           <input
             type="text"
             placeholder="Category (e.g., Networking, OS)"
@@ -154,8 +193,12 @@ const QuestionsPage = () => {
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
           />
-          <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={handleSave}>
-            {selectedQuestion ? "Update" : "Create"} Question
+
+          <button
+            className="bg-green-500 text-white px-4 py-2 rounded"
+            onClick={handleSave}
+          >
+            {selectedQuestion ? "Update Question" : "Create Question"}
           </button>
         </Modal>
       )}

@@ -2,78 +2,140 @@ import React, { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import Table from "../../components/Table";
 import Modal from "../../components/Modal";
-import { databases } from "../../utils/appwrite";
-import { Query } from "appwrite";
+import { databases, ID } from "../../utils/appwrite";
+import { account } from "../../utils/appwrite"; // ✅ Ensure account is imported
 
 const ExamsPage = () => {
   const [exams, setExams] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState(null);
-  const [formData, setFormData] = useState({ name: "", duration: "", status: "active", scheduled_date: "" });
+  const [formData, setFormData] = useState({
+    exam_id: "", // ✅ Added exam_id field
+    name: "",
+    description: "",
+    exam_date: "",
+    duration: "",
+    status: "active",
+  });
+
+  const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
+  const collectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
 
   useEffect(() => {
     fetchExams();
   }, []);
 
+  // ✅ Fetch Exams from Appwrite
   const fetchExams = async () => {
     try {
-      const response = await databases.listDocuments(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID
-      );
-      setExams(response.documents);
+      if (!databaseId || !collectionId) {
+        console.error("Missing Database ID or Collection ID. Check .env file.");
+        return;
+      }
+
+      const response = await databases.listDocuments(databaseId, collectionId);
+      setExams(response.documents || []);
     } catch (error) {
-      console.error("Error fetching exams:", error.message);
+      console.error("Error fetching exams:", error);
     }
   };
 
+  // ✅ Open Modal for Create/Edit
   const openModal = (exam = null) => {
     if (exam) {
       setFormData({
-        name: exam.name,
-        duration: exam.duration,
-        status: exam.status,
-        scheduled_date: exam.scheduled_date,
+        exam_id: exam.exam_id || "",
+        name: exam.name || "",
+        description: exam.description || "",
+        exam_date: exam.exam_date || "",
+        duration: exam.duration || "",
+        status: exam.status || "active",
       });
       setSelectedExam(exam);
     } else {
-      setFormData({ name: "", duration: "", status: "active", scheduled_date: "" });
+      setFormData({
+        exam_id: "",
+        name: "",
+        description: "",
+        exam_date: "",
+        duration: "",
+        status: "active",
+      });
       setSelectedExam(null);
     }
     setIsModalOpen(true);
   };
 
-  const handleSave = async () => {
+  // ✅ Handle Save (Create/Update)
+  const handleSave = async (data) => {
     try {
+      console.log("Account Object:", account);
+  
+      // Get the logged-in user
+      const user = await account.get();
+      const userId = user?.$id || "unknown";
+  
+      // Validate required fields
+      if (!data.exam_id) {
+        alert("Exam ID is required.");
+        return;
+      }
+  
+      // Convert duration to an integer (Fixes the error)
+      const durationInt = parseInt(data.duration, 10);
+      if (isNaN(durationInt)) {
+        alert("Duration must be a valid number.");
+        return;
+      }
+  
+      const timestamp = new Date().toISOString(); // ✅ Generate ISO timestamp
+  
       if (selectedExam) {
+        // ✅ Update existing exam
         await databases.updateDocument(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-          process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
+          databaseId,
+          collectionId,
           selectedExam.$id,
-          formData
+          {
+            ...data,
+            duration: durationInt, // ✅ Ensure duration is an integer
+            modified_at: timestamp, // ✅ Update modification timestamp
+          }
         );
       } else {
-        await databases.createDocument(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-          process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
-          formData
-        );
+        // ✅ Ensure all required fields are included
+        const newExam = {
+          exam_id: data.exam_id, // Required Unique ID
+          name: data.name,
+          description: data.description || "", // Optional
+          exam_date: data.exam_date, // Required
+          duration: durationInt, // ✅ Converted to integer
+          status: data.status, // Required ENUM ("active", "inactive", "completed")
+          created_by: userId, // Required
+          created_at: timestamp, // ✅ Required: Creation timestamp
+          modified_at: timestamp, // ✅ Set modification timestamp initially same as created_at
+        };
+  
+        await databases.createDocument(databaseId, collectionId, ID.unique(), newExam);
       }
+  
       setIsModalOpen(false);
       fetchExams();
     } catch (error) {
-      console.error("Error saving exam:", error.message);
+      console.error("Error saving exam:", error);
     }
   };
+  
 
+  // ✅ Handle Delete
   const deleteExam = async (examId) => {
     if (confirm("Are you sure you want to delete this exam?")) {
-      await databases.deleteDocument(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
-        examId
-      );
-      fetchExams();
+      try {
+        await databases.deleteDocument(databaseId, collectionId, examId);
+        fetchExams(); // Refresh list
+      } catch (error) {
+        console.error("Error deleting exam:", error);
+      }
     }
   };
 
@@ -84,12 +146,14 @@ const ExamsPage = () => {
         className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
         onClick={() => openModal()}
       >
-        Add Exam
+        + Add Exam
       </button>
       <Table
-        data={exams.map((exam) => ({
+        data={exams?.map((exam) => ({
+          ExamID: exam.exam_id, // ✅ Display Exam ID
           Name: exam.name,
-          Date: new Date(exam.scheduled_date).toLocaleDateString(),
+          Description: exam.description || "N/A",
+          Date: exam.exam_date ? new Date(exam.exam_date).toLocaleString() : "N/A",
           Duration: `${exam.duration} min`,
           Status: exam.status,
           Actions: (
@@ -98,43 +162,28 @@ const ExamsPage = () => {
               <button className="text-red-500" onClick={() => deleteExam(exam.$id)}>Delete</button>
             </>
           ),
-        }))}
+        })) || []}
       />
       {isModalOpen && (
-        <Modal onClose={() => setIsModalOpen(false)}>
-          <h3>{selectedExam ? "Edit Exam" : "Add Exam"}</h3>
-          <input
-            type="text"
-            placeholder="Exam Name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
-          />
-          <input
-            type="number"
-            placeholder="Duration (minutes)"
-            value={formData.duration}
-            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
-          />
-          <input
-            type="date"
-            value={formData.scheduled_date}
-            onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
-          />
-          <select
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={handleSave}>
-            {selectedExam ? "Update" : "Create"} Exam
-          </button>
-        </Modal>
+        <Modal
+          title={selectedExam ? "Edit Exam" : "Add Exam"}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSave} // ✅ Ensure function binding
+          initialData={formData}
+          fields={[
+            { name: "exam_id", label: "Exam ID", type: "text" }, // ✅ Added Exam ID input
+            { name: "name", label: "Exam Name", type: "text" },
+            { name: "description", label: "Description", type: "text" },
+            { name: "exam_date", label: "Exam Date", type: "datetime-local" },
+            { name: "duration", label: "Duration (minutes)", type: "number" },
+            {
+              name: "status",
+              label: "Status",
+              type: "select",
+              options: ["active", "inactive", "completed"],
+            },
+          ]}
+        />
       )}
     </AdminLayout>
   );
