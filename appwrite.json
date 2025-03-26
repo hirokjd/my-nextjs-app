@@ -1,665 +1,716 @@
 {
-  "projectId": "67a330f000309c9fb299",
-  "projectName": "online_exam_portal",
-  "settings": {
-      "services": {
-          "account": true,
-          "avatars": true,
-          "databases": true,
-          "locale": true,
-          "health": true,
-          "storage": true,
-          "teams": true,
-          "users": true,
-          "functions": true,
-          "graphql": true,
-          "messaging": true
-      },
-      "auth": {
-          "methods": {
-              "jwt": true,
-              "phone": true,
-              "invites": true,
-              "anonymous": true,
-              "email-otp": true,
-              "magic-url": true,
-              "email-password": true
-          },
-          "security": {
-              "duration": 31536000,
-              "limit": 0,
-              "sessionsLimit": 10,
-              "passwordHistory": 0,
-              "passwordDictionary": false,
-              "personalDataCheck": false,
-              "sessionAlerts": false,
-              "mockNumbers": []
-          }
-      }
-  },
-  "databases": [
-      {
-          "$id": "67a33bc70028dbb74e0c",
-          "name": "exam_portal",
-          "enabled": true
-      }
-  ],
-  "collections": [
-      {
-          "$id": "students",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Students",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "student_id",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "name",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 255,
-                  "default": null
-              },
-              {
-                  "key": "email",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "format": "email",
-                  "default": null
-              },
-              {
-                  "key": "password",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 255,
-                  "default": null
-              },
-              {
-                  "key": "status",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "elements": [
-                      "active",
-                      "inactive"
-                  ],
-                  "format": "enum",
-                  "default": null
-              },
-              {
-                  "key": "registered_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              },
-              {
-                  "key": "registered_by",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              }
-          ],
-          "indexes": [
-              {
-                  "key": "index_1",
-                  "type": "unique",
-                  "status": "available",
-                  "attributes": [
-                      "student_id"
-                  ],
-                  "orders": [
-                      "ASC"
-                  ]
-              }
-          ]
-      },
-      {
-          "$id": "questions",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Questions",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "question_id",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "text",
-                  "type": "string",
-                  "required": false,
-                  "array": false,
-                  "size": 1000,
-                  "default": null
-              },
-              {
-                  "key": "image_url",
-                  "type": "string",
-                  "required": false,
-                  "array": false,
-                  "format": "url",
-                  "default": null
-              },
-              {
-                  "key": "correct_answer",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": -9223372036854775808,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "difficulty",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "elements": [
-                      "easy",
-                      "medium",
-                      "hard"
-                  ],
-                  "format": "enum",
-                  "default": null
-              },
-              {
-                  "key": "tags",
-                  "type": "string",
-                  "required": false,
-                  "array": true,
-                  "size": 500,
-                  "default": null
-              },
-              {
-                  "key": "created_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              },
-              {
-                  "key": "created_by",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "options",
-                  "type": "string",
-                  "required": false,
-                  "array": true,
-                  "size": 2000,
-                  "default": null
-              }
-          ],
-          "indexes": [
-              {
-                  "key": "index_1",
-                  "type": "unique",
-                  "status": "available",
-                  "attributes": [
-                      "question_id"
-                  ],
-                  "orders": [
-                      "ASC"
-                  ]
-              }
-          ]
-      },
-      {
-          "$id": "exams",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Exams",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "exam_id",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "name",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 255,
-                  "default": null
-              },
-              {
-                  "key": "description",
-                  "type": "string",
-                  "required": false,
-                  "array": false,
-                  "size": 1000,
-                  "default": null
-              },
-              {
-                  "key": "exam_date",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              },
-              {
-                  "key": "duration",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": -9223372036854775808,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "status",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "elements": [
-                      "active",
-                      "inactive",
-                      "completed"
-                  ],
-                  "format": "enum",
-                  "default": null
-              },
-              {
-                  "key": "created_by",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "created_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              },
-              {
-                  "key": "modified_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              }
-          ],
-          "indexes": [
-              {
-                  "key": "index_1",
-                  "type": "unique",
-                  "status": "available",
-                  "attributes": [
-                      "exam_id"
-                  ],
-                  "orders": [
-                      "ASC"
-                  ]
-              }
-          ]
-      },
-      {
-          "$id": "exam_questions",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Exam Questions",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "exam_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "exams",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "examQuestions",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "question_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "questions",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "67da65f300306a8cdb1d",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "order",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": -9223372036854775808,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "marks",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": -9223372036854775808,
-                  "max": 9223372036854775807,
-                  "default": null
-              }
-          ],
-          "indexes": []
-      },
-      {
-          "$id": "exam_enrollments",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Exam Enrollments",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "enrollment_id",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "student_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "students",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "67da6677002265cae099",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "exam_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "exams",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "67da668400254bd6f855",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "enrolled_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              }
-          ],
-          "indexes": [
-              {
-                  "key": "index_1",
-                  "type": "unique",
-                  "status": "available",
-                  "attributes": [
-                      "enrollment_id"
-                  ],
-                  "orders": [
-                      "ASC"
-                  ]
-              }
-          ]
-      },
-      {
-          "$id": "results",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Results",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "result_id",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "student_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "students",
-                  "relationType": "manyToOne",
-                  "twoWay": false,
-                  "twoWayKey": "67da6e1300316b6c8edb",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "exam_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "exams",
-                  "relationType": "manyToOne",
-                  "twoWay": false,
-                  "twoWayKey": "67da6e3f003a6d4e9f0e",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "score",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": -9223372036854775808,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "total_marks",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": 0,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "percentage",
-                  "type": "double",
-                  "required": true,
-                  "array": false,
-                  "min": -1.7976931348623157e+308,
-                  "max": 1.7976931348623157e+308,
-                  "default": null
-              },
-              {
-                  "key": "status",
-                  "type": "string",
-                  "required": false,
-                  "array": false,
-                  "elements": [
-                      "passed",
-                      "failed"
-                  ],
-                  "format": "enum",
-                  "default": null
-              },
-              {
-                  "key": "attempted_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              },
-              {
-                  "key": "completed_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              },
-              {
-                  "key": "time_taken",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": 0,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "created_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              }
-          ],
-          "indexes": []
-      },
-      {
-          "$id": "exam_attempts",
-          "$permissions": [],
-          "databaseId": "67a33bc70028dbb74e0c",
-          "name": "Exam Attempts",
-          "enabled": true,
-          "documentSecurity": false,
-          "attributes": [
-              {
-                  "key": "attempt_id",
-                  "type": "string",
-                  "required": true,
-                  "array": false,
-                  "size": 36,
-                  "default": null
-              },
-              {
-                  "key": "student_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "students",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "67da66dc003423124762",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "exam_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "exams",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "67da66fc0003a1afe034",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "question_id",
-                  "type": "relationship",
-                  "required": false,
-                  "array": false,
-                  "relatedCollection": "questions",
-                  "relationType": "manyToMany",
-                  "twoWay": false,
-                  "twoWayKey": "67da670d000c175fdba9",
-                  "onDelete": "setNull",
-                  "side": "parent"
-              },
-              {
-                  "key": "selected_option",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": 1,
-                  "max": 4,
-                  "default": null
-              },
-              {
-                  "key": "is_correct",
-                  "type": "boolean",
-                  "required": true,
-                  "array": false,
-                  "default": null
-              },
-              {
-                  "key": "score",
-                  "type": "integer",
-                  "required": true,
-                  "array": false,
-                  "min": -9223372036854775808,
-                  "max": 9223372036854775807,
-                  "default": null
-              },
-              {
-                  "key": "attempted_at",
-                  "type": "datetime",
-                  "required": true,
-                  "array": false,
-                  "format": "",
-                  "default": null
-              }
-          ],
-          "indexes": [
-              {
-                  "key": "index_1",
-                  "type": "unique",
-                  "status": "available",
-                  "attributes": [
-                      "attempt_id"
-                  ],
-                  "orders": [
-                      "ASC"
-                  ]
-              }
-          ]
-      }
-  ]
+    "projectId": "67a5a82b0012c876308e",
+    "projectName": "onlineExamPortal",
+    "settings": {
+        "services": {
+            "account": true,
+            "avatars": true,
+            "databases": true,
+            "locale": true,
+            "health": true,
+            "storage": true,
+            "teams": true,
+            "users": true,
+            "functions": true,
+            "graphql": true,
+            "messaging": true
+        },
+        "auth": {
+            "methods": {
+                "jwt": true,
+                "phone": true,
+                "invites": true,
+                "anonymous": true,
+                "email-otp": true,
+                "magic-url": true,
+                "email-password": true
+            },
+            "security": {
+                "duration": 31536000,
+                "limit": 0,
+                "sessionsLimit": 10,
+                "passwordHistory": 0,
+                "passwordDictionary": false,
+                "personalDataCheck": false,
+                "sessionAlerts": false,
+                "mockNumbers": []
+            }
+        }
+    },
+    "databases": [
+        {
+            "$id": "67a5a946002e8a51f8fe",
+            "name": "onlineExamPortal",
+            "enabled": true
+        }
+    ],
+    "collections": [
+        {
+            "$id": "users",
+            "$permissions": [
+                "create(\"guests\")",
+                "read(\"guests\")",
+                "update(\"guests\")",
+                "create(\"users\")",
+                "read(\"users\")",
+                "update(\"users\")",
+                "create(\"any\")",
+                "read(\"any\")",
+                "update(\"any\")"
+            ],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "student_table",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "email",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "password",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "students",
+            "$permissions": [],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Students",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "student_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "email",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "format": "email",
+                    "default": null
+                },
+                {
+                    "key": "password",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "elements": [
+                        "active",
+                        "inactive"
+                    ],
+                    "format": "enum",
+                    "default": null
+                },
+                {
+                    "key": "registered_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "registered_by",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "index_1",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "student_id"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "questions",
+            "$permissions": [],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Questions",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "question_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 1000,
+                    "default": null
+                },
+                {
+                    "key": "image_url",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "format": "url",
+                    "default": null
+                },
+                {
+                    "key": "correct_answer",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "difficulty",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "elements": [
+                        "easy",
+                        "medium",
+                        "hard"
+                    ],
+                    "format": "enum",
+                    "default": null
+                },
+                {
+                    "key": "tags",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 500,
+                    "default": null
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "created_by",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "options",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 2000,
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "index_1",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "question_id"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "exams",
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")"
+            ],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Exams",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "exam_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "description",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 1000,
+                    "default": null
+                },
+                {
+                    "key": "exam_date",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "duration",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "elements": [
+                        "active",
+                        "inactive",
+                        "completed"
+                    ],
+                    "format": "enum",
+                    "default": null
+                },
+                {
+                    "key": "created_by",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "modified_at",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "index_1",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "exam_id"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "exam_questions",
+            "$permissions": [],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Exam Questions",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "exam_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "exams",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "examQuestions",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "question_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "questions",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da65f300306a8cdb1d",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "order",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "marks",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "exam_enrollments",
+            "$permissions": [],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Exam Enrollments",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "enrollment_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "student_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da6677002265cae099",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "exam_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "exams",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da668400254bd6f855",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "enrolled_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "index_1",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "enrollment_id"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "results",
+            "$permissions": [],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Results",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "result_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "student_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "manyToOne",
+                    "twoWay": false,
+                    "twoWayKey": "67da6e1300316b6c8edb",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "exam_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "exams",
+                    "relationType": "manyToOne",
+                    "twoWay": false,
+                    "twoWayKey": "67da6e3f003a6d4e9f0e",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "score",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "total_marks",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": 0,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "percentage",
+                    "type": "double",
+                    "required": true,
+                    "array": false,
+                    "min": -1.7976931348623157e+308,
+                    "max": 1.7976931348623157e+308,
+                    "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "elements": [
+                        "passed",
+                        "failed"
+                    ],
+                    "format": "enum",
+                    "default": null
+                },
+                {
+                    "key": "attempted_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "completed_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "time_taken",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": 0,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "exam_attempts",
+            "$permissions": [],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Exam Attempts",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "attempt_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "student_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da66dc003423124762",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "exam_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "exams",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da66fc0003a1afe034",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "question_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "questions",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da670d000c175fdba9",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "selected_option",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": 1,
+                    "max": 4,
+                    "default": null
+                },
+                {
+                    "key": "is_correct",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "score",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "attempted_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "index_1",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "attempt_id"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        }
+    ]
 }
