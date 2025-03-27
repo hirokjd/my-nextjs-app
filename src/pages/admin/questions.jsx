@@ -1,33 +1,34 @@
 import React, { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
-import { databases, storage } from "../../utils/appwrite";
+import { databases } from "../../utils/appwrite";
 import { ID } from "appwrite";
-
-const BUCKET_ID = "questions"; // Appwrite Storage Bucket ID
 
 const QuestionsPage = () => {
   const [questions, setQuestions] = useState([]);
   const [editingQuestion, setEditingQuestion] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     question_id: "",
     text: "",
     image_url: "",
     options: ["", "", "", ""],
-    option_images: ["", "", "", ""], // ✅ Store option images
     correct_answer: 0,
     difficulty: "easy",
     tags: "",
     created_by: "",
   });
-  const [modalOpen, setModalOpen] = useState(false);
 
+  /** 📌 Fetch Questions on Component Mount */
   useEffect(() => {
     fetchQuestions();
   }, []);
 
-  /** 📌 Fetch all questions from Appwrite */
+  /** 📌 Fetch Questions from Appwrite */
   const fetchQuestions = async () => {
     try {
+      setLoading(true);
       const response = await databases.listDocuments(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
         process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID
@@ -35,64 +36,43 @@ const QuestionsPage = () => {
       setQuestions(response.documents);
     } catch (error) {
       console.error("Error fetching questions:", error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  /** 📌 Handle image upload */
-  const handleImageUpload = async (file, type, index = null) => {
-    if (!file) return;
-
-    try {
-      // Upload file to Appwrite Storage
-      const uploadResponse = await storage.createFile(BUCKET_ID, ID.unique(), file);
-      const imageUrl = storage.getFileView(BUCKET_ID, uploadResponse.$id);
-
-      if (type === "question") {
-        setFormData((prev) => ({ ...prev, image_url: imageUrl }));
-      } else {
-        setFormData((prev) => {
-          const updatedOptionImages = [...prev.option_images];
-          updatedOptionImages[index] = imageUrl;
-          return { ...prev, option_images: updatedOptionImages };
-        });
-      }
-    } catch (error) {
-      console.error("Image upload error:", error.message);
-    }
-  };
-
-  /** 📌 Handle text input changes */
+  /** 📌 Handle Input Changes */
   const handleInputChange = (e, field, index = null) => {
-    if (index !== null) {
-      setFormData((prev) => {
+    setFormData((prev) => {
+      if (index !== null) {
         const updatedOptions = [...prev.options];
         updatedOptions[index] = e.target.value;
         return { ...prev, options: updatedOptions };
-      });
-    } else {
-      setFormData({ ...formData, [field]: e.target.value });
-    }
+      }
+      return { ...prev, [field]: e.target.value };
+    });
   };
 
-  /** 📌 Save or update a question */
-  const handleSave = async () => {
+  /** 📌 Validate Form Data */
+  const validateForm = () => {
     if (!formData.question_id || !formData.created_by) {
-      alert("Please provide question ID and created by field.");
-      return;
+      alert("Please provide both Question ID and Created By.");
+      return false;
     }
-
     if (!formData.text && !formData.image_url) {
-      alert("Please provide either a question text or an image.");
-      return;
+      alert("Please provide either a Question Text or an Image.");
+      return false;
     }
-
-    const hasValidOption = formData.options.some((option) => option.trim() !== "") || 
-                           formData.option_images.some((img) => img !== "");
-
-    if (!hasValidOption) {
-      alert("At least one option must have text or an image.");
-      return;
+    if (!formData.options.some((option) => option.trim() !== "")) {
+      alert("At least one option must have text.");
+      return false;
     }
+    return true;
+  };
+
+  /** 📌 Save or Update a Question */
+  const handleSave = async () => {
+    if (!validateForm()) return;
 
     try {
       const isEditing = editingQuestion !== null;
@@ -101,7 +81,6 @@ const QuestionsPage = () => {
         text: formData.text,
         image_url: formData.image_url,
         options: formData.options,
-        option_images: formData.option_images, // ✅ Store option images
         correct_answer: formData.correct_answer,
         difficulty: formData.difficulty,
         tags: formData.tags ? formData.tags.split(",").map((tag) => tag.trim()) : [],
@@ -133,14 +112,13 @@ const QuestionsPage = () => {
     }
   };
 
-  /** 📌 Reset the form */
+  /** 📌 Reset Form */
   const resetForm = () => {
     setFormData({
       question_id: "",
       text: "",
       image_url: "",
       options: ["", "", "", ""],
-      option_images: ["", "", "", ""], // ✅ Reset option images
       correct_answer: 0,
       difficulty: "easy",
       tags: "",
@@ -150,10 +128,13 @@ const QuestionsPage = () => {
 
   return (
     <AdminLayout>
-      <h2 className="text-2xl font-bold mb-4">Create a New Question</h2>
+      <h2 className="text-2xl font-bold mb-4">Manage Questions</h2>
+
       <button className="bg-blue-500 text-white px-4 py-2 rounded mb-4" onClick={() => setModalOpen(true)}>
         + Add Question
       </button>
+
+      {loading ? <p>Loading questions...</p> : null}
 
       {modalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
@@ -181,24 +162,24 @@ const QuestionsPage = () => {
               onChange={(e) => handleInputChange(e, "text")}
             />
 
-            <input type="file" onChange={(e) => handleImageUpload(e.target.files[0], "question")} />
-            {formData.image_url && <img src={formData.image_url} alt="Question Preview" className="w-full h-20 object-cover my-2" />}
-
             {formData.options.map((option, index) => (
-              <div key={index} className="mb-2">
+              <div key={index} className="flex items-center gap-2 mb-2">
                 <input
                   className="border rounded px-3 py-2 w-full"
                   placeholder={`Option ${index + 1}`}
                   value={option}
                   onChange={(e) => handleInputChange(e, "options", index)}
                 />
-
-                <input type="file" onChange={(e) => handleImageUpload(e.target.files[0], "option", index)} />
-                {formData.option_images[index] && <img src={formData.option_images[index]} alt={`Option ${index + 1}`} className="w-full h-10 object-cover my-2" />}
+                <input
+                  type="radio"
+                  name="correct_answer"
+                  checked={formData.correct_answer === index}
+                  onChange={() => setFormData({ ...formData, correct_answer: index })}
+                />
               </div>
             ))}
 
-            <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={handleSave}>Submit</button>
+            <button className="bg-blue-600 text-white px-4 py-2 rounded mt-4" onClick={handleSave}>Submit</button>
           </div>
         </div>
       )}
@@ -207,6 +188,3 @@ const QuestionsPage = () => {
 };
 
 export default QuestionsPage;
-
-
-
