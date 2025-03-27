@@ -198,14 +198,6 @@
                     "default": null
                 },
                 {
-                    "key": "image_url",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "format": "url",
-                    "default": null
-                },
-                {
                     "key": "correct_answer",
                     "type": "integer",
                     "required": true,
@@ -236,14 +228,6 @@
                     "default": null
                 },
                 {
-                    "key": "created_at",
-                    "type": "datetime",
-                    "required": true,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
                     "key": "created_by",
                     "type": "string",
                     "required": true,
@@ -257,6 +241,14 @@
                     "required": false,
                     "array": true,
                     "size": 2000,
+                    "default": null
+                },
+                {
+                    "key": "image_url",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
                     "default": null
                 }
             ],
