@@ -175,7 +175,14 @@
         },
         {
             "$id": "questions",
-            "$permissions": [],
+            "$permissions": [
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")",
+                "read(\"label:student\")",
+                "read(\"any\")"
+            ],
             "databaseId": "67a5a946002e8a51f8fe",
             "name": "Questions",
             "enabled": true,
@@ -198,12 +205,36 @@
                     "default": null
                 },
                 {
+                    "key": "image_id",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "options_text",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 200,
+                    "default": null
+                },
+                {
+                    "key": "options_image",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 36,
+                    "default": null
+                },
+                {
                     "key": "correct_answer",
                     "type": "integer",
                     "required": true,
                     "array": false,
-                    "min": -9223372036854775808,
-                    "max": 9223372036854775807,
+                    "min": 0,
+                    "max": 3,
                     "default": null
                 },
                 {
@@ -233,22 +264,6 @@
                     "required": true,
                     "array": false,
                     "size": 36,
-                    "default": null
-                },
-                {
-                    "key": "options",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 2000,
-                    "default": null
-                },
-                {
-                    "key": "image_url",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
                     "default": null
                 }
             ],
