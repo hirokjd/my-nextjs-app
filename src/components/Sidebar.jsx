@@ -93,7 +93,7 @@ const Sidebar = ({ isAdmin = false, isOpen, toggleSidebar }) => {
 
       <div className="flex items-center gap-3 mb-8 px-4">
         <GraduationCap size={32} />
-        <h1 className="text-xl font-bold">ExamPortal</h1>
+        <h1 className="text-xl font-bold">Exam</h1>
       </div>
 
       <nav className="space-y-2 flex-1">
