@@ -1,12 +1,22 @@
-import { Client, Account, Databases, Storage, ID } from "appwrite";
+import { Client, Account, Databases, Storage, ID, Query, Permission, Role } from "appwrite";
 
 const client = new Client();
 client
-  .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT) // Ensure this is set in .env
+  .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT)
   .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
 
 const account = new Account(client);
 const databases = new Databases(client);
-const storage = new Storage(client); // ✅ Add Storage instance
+const storage = new Storage(client);
 
-export { account, databases, storage, ID }; // ✅ Export Storage & ID
+// Export all the initialized instances and classes
+export { 
+  client,
+  account, 
+  databases, 
+  storage, 
+  ID, 
+  Query, 
+  Permission, 
+  Role 
+};

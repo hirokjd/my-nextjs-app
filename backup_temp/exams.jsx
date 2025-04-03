@@ -9,7 +9,6 @@ const ExamsPage = () => {
   const [filteredExams, setFilteredExams] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
-  const [isViewQuestionsModalOpen, setIsViewQuestionsModalOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,9 +19,6 @@ const ExamsPage = () => {
   const [questionMarks, setQuestionMarks] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
-  const [tagFilter, setTagFilter] = useState("all");
-  const [tagSearchTerm, setTagSearchTerm] = useState("");
-  const [availableTags, setAvailableTags] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 10;
 
@@ -78,15 +74,6 @@ const ExamsPage = () => {
       const response = await databases.listDocuments(databaseId, questionsCollectionId);
       setQuestions(response.documents);
       setFilteredQuestions(response.documents);
-      
-      // Extract all unique tags from questions
-      const tags = new Set();
-      response.documents.forEach(question => {
-        if (question.tags && Array.isArray(question.tags)) {
-          question.tags.forEach(tag => tags.add(tag));
-        }
-      });
-      setAvailableTags(Array.from(tags).sort());
     } catch (err) {
       console.error("Error fetching questions:", err);
       setError("Failed to load questions");
@@ -95,73 +82,37 @@ const ExamsPage = () => {
 
   const fetchExamQuestions = useCallback(async (examId) => {
     try {
+      // First get all exam_questions documents
       const response = await databases.listDocuments(
         databaseId,
-        "exam_questions",
-        [Query.equal("exam_id", examId)]
+        "exam_questions"
       );
       
+      // Then filter client-side for this exam
+      const filteredQuestions = response.documents.filter(
+        doc => doc.exam_id === examId
+      );
+  
       const marksMap = {};
-      const questionIds = [];
-      response.documents.forEach(q => {
+      filteredQuestions.forEach(q => {
         marksMap[q.question_id] = q.marks;
-        questionIds.push(q.question_id);
       });
-      
       setQuestionMarks(marksMap);
-      return { documents: response.documents, questionIds };
+      
+      return filteredQuestions;
     } catch (err) {
       console.error("Error fetching exam questions:", err);
       setError("Failed to load exam questions");
-      return { documents: [], questionIds: [] };
+      return [];
     }
   }, [databaseId]);
-
-  const fetchQuestionsForExam = useCallback(async (examId) => {
-    try {
-      // First get all exam_question relationships for this exam
-      const examQuestions = await databases.listDocuments(
-        databaseId,
-        "exam_questions",
-        [Query.equal("exam_id", examId)]
-      );
-      
-      // Then fetch the actual question documents
-      if (examQuestions.documents.length > 0) {
-        const questionIds = examQuestions.documents.map(q => q.question_id);
-        const questionsResponse = await databases.listDocuments(
-          databaseId,
-          questionsCollectionId,
-          [Query.equal("$id", questionIds)]
-        );
-        
-        // Create a map of question marks
-        const marksMap = {};
-        examQuestions.documents.forEach(q => {
-          marksMap[q.question_id] = q.marks;
-        });
-        
-        return {
-          questions: questionsResponse.documents,
-          marks: marksMap,
-          examQuestions: examQuestions.documents
-        };
-      }
-      
-      return { questions: [], marks: {}, examQuestions: [] };
-    } catch (err) {
-      console.error("Error fetching questions for exam:", err);
-      setError("Failed to load exam questions");
-      return { questions: [], marks: {}, examQuestions: [] };
-    }
-  }, [databaseId, questionsCollectionId]);
 
   useEffect(() => {
     fetchExams();
     fetchQuestions();
   }, [fetchExams, fetchQuestions]);
 
-  // Filter questions based on search term, difficulty and tags
+  // Filter questions based on search term and difficulty
   useEffect(() => {
     let results = questions;
     
@@ -178,15 +129,9 @@ const ExamsPage = () => {
       );
     }
     
-    if (tagFilter !== "all") {
-      results = results.filter(question => 
-        question.tags && question.tags.includes(tagFilter)
-      );
-    }
-    
     setFilteredQuestions(results);
     setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, difficultyFilter, tagFilter, questions]);
+  }, [searchTerm, difficultyFilter, questions]);
 
   const openModal = (exam = null) => {
     setSelectedExam(exam);
@@ -209,31 +154,9 @@ const ExamsPage = () => {
     setSelectedExam(exam);
     setIsLoading(true);
     try {
-      const { questionIds, documents } = await fetchExamQuestions(exam.$id);
-      setSelectedQuestions(questionIds);
-      
-      // Initialize marks for all selected questions
-      const marksMap = {};
-      documents.forEach(q => {
-        marksMap[q.question_id] = q.marks;
-      });
-      setQuestionMarks(marksMap);
-      
+      const examQuestions = await fetchExamQuestions(exam.$id);
+      setSelectedQuestions(examQuestions.map(q => q.question_id));
       setIsQuestionModalOpen(true);
-    } catch (err) {
-      setError("Failed to load exam questions");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const openViewQuestionsModal = async (exam) => {
-    setSelectedExam(exam);
-    setIsLoading(true);
-    try {
-      const { questions: examQuestions } = await fetchQuestionsForExam(exam.$id);
-      setFilteredQuestions(examQuestions);
-      setIsViewQuestionsModalOpen(true);
     } catch (err) {
       setError("Failed to load exam questions");
     } finally {
@@ -255,13 +178,6 @@ const ExamsPage = () => {
     setQuestionMarks({});
     setSearchTerm("");
     setDifficultyFilter("all");
-    setTagFilter("all");
-  };
-
-  const closeViewQuestionsModal = () => {
-    setIsViewQuestionsModalOpen(false);
-    setSelectedExam(null);
-    setFilteredQuestions(questions);
   };
 
   const viewExamDetails = (exam) => {
@@ -393,57 +309,33 @@ const ExamsPage = () => {
         throw new Error("You must be logged in to perform this action");
       }
   
-      // First get existing exam questions to know which ones to delete
+      // First delete existing exam questions
       const existingQuestions = await fetchExamQuestions(selectedExam.$id);
-      
-      // Delete questions that were unselected
-      const questionsToDelete = existingQuestions.documents.filter(
-        q => !selectedQuestions.includes(q.question_id)
-      );
-      
       await Promise.all(
-        questionsToDelete.map(q => 
+        existingQuestions.map(q => 
           databases.deleteDocument(databaseId, "exam_questions", q.$id)
         )
       );
   
-      // Add or update remaining selected questions
+      // Add new selected questions with proper relationship format
       await Promise.all(
         selectedQuestions.map(async (questionId, index) => {
-          const existingQuestion = existingQuestions.documents.find(
-            q => q.question_id === questionId
+          await databases.createDocument(
+            databaseId,
+            "exam_questions",
+            ID.unique(),
+            {
+              exam_id: [selectedExam.$id], // Note the array format for relationship
+              question_id: [questionId],   // Note the array format for relationship
+              order: index + 1,
+              marks: questionMarks[questionId] || 1
+            },
+            [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(user.$id)),
+              Permission.delete(Role.user(user.$id))
+            ]
           );
-          
-          if (existingQuestion) {
-            // Update existing relationship
-            await databases.updateDocument(
-              databaseId,
-              "exam_questions",
-              existingQuestion.$id,
-              {
-                order: index + 1,
-                marks: questionMarks[questionId] || 1
-              }
-            );
-          } else {
-            // Create new relationship
-            await databases.createDocument(
-              databaseId,
-              "exam_questions",
-              ID.unique(),
-              {
-                exam_id: [selectedExam.$id], // Note the array format for relationship
-                question_id: [questionId],   // Note the array format for relationship
-                order: index + 1,
-                marks: questionMarks[questionId] || 1
-              },
-              [
-                Permission.read(Role.any()),
-                Permission.update(Role.user(user.$id)),
-                Permission.delete(Role.user(user.$id))
-              ]
-            );
-          }
         })
       );
   
@@ -469,7 +361,7 @@ const ExamsPage = () => {
       // First delete associated exam questions
       const examQuestions = await fetchExamQuestions(examId);
       await Promise.all(
-        examQuestions.documents.map(q => 
+        examQuestions.map(q => 
           databases.deleteDocument(databaseId, "exam_questions", q.$id)
         )
       );
@@ -584,15 +476,6 @@ const ExamsPage = () => {
                   >
                     Manage Questions
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openViewQuestionsModal(exam);
-                    }}
-                    className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                  >
-                    View Questions
-                  </button>
                 </div>
               </div>
             ))}
@@ -655,7 +538,7 @@ const ExamsPage = () => {
                   </div>
                 )}
 
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
                       Search Questions
@@ -684,24 +567,6 @@ const ExamsPage = () => {
                       <option value="medium">Medium</option>
                       <option value="hard">Hard</option>
                     </select>
-                  </div>
-                  <div>
-                    <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
-                      Filter by Tag
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="tags"
-                        value={tagFilter}
-                        onChange={(e) => setTagFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Tags</option>
-                        {availableTags.map(tag => (
-                          <option key={tag} value={tag}>{tag}</option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
                 </div>
 
@@ -741,15 +606,6 @@ const ExamsPage = () => {
                             <div className="mt-1 text-sm text-gray-600">
                               <span className="mr-2">ID: {question.question_id}</span>
                               <span>Type: {question.type}</span>
-                              {question.tags && question.tags.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {question.tags.map(tag => (
-                                    <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
                             </div>
                             
                             {selectedQuestions.includes(question.$id) && (
@@ -829,113 +685,9 @@ const ExamsPage = () => {
                   <button
                     onClick={handleSaveQuestions}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    disabled={isLoading}
+                    disabled={isLoading || selectedQuestions.length === 0}
                   >
                     {isLoading ? 'Saving...' : 'Save Questions'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isViewQuestionsModalOpen && selectedExam && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">
-                      Questions for {selectedExam.name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {filteredQuestions.length} question(s)
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeViewQuestionsModal}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {error && (
-                  <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
-                    <p>{error}</p>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {filteredQuestions.length > 0 ? (
-                    filteredQuestions.map((question) => (
-                      <div key={question.$id} className="p-4 border border-gray-200 rounded-lg bg-white">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-medium text-gray-800">
-                            {question.text || "Question"}
-                          </h4>
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              question.difficulty === "easy" 
-                                ? "bg-green-100 text-green-800" 
-                                : question.difficulty === "medium" 
-                                  ? "bg-yellow-100 text-yellow-800" 
-                                  : "bg-red-100 text-red-800"
-                            }`}>
-                              {question.difficulty}
-                            </span>
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                              Marks: {questionMarks[question.$id] || 1}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          <span className="mr-2">ID: {question.question_id}</span>
-                          <span>Type: {question.type}</span>
-                          {question.tags && question.tags.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {question.tags.map(tag => (
-                                <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        
-                        {question.options_text && (
-                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {question.options_text.map((option, index) => (
-                              <div 
-                                key={index} 
-                                className={`text-sm p-2 rounded ${
-                                  question.correct_answer === index 
-                                    ? "bg-green-100 text-green-800" 
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {option}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No questions found for this exam
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={closeViewQuestionsModal}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-                  >
-                    Close
                   </button>
                 </div>
               </div>
@@ -1011,12 +763,6 @@ const ExamsPage = () => {
                     Delete Exam
                   </button>
                   <button
-                    onClick={() => openViewQuestionsModal(selectedExamDetail)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                  >
-                    View Questions
-                  </button>
-                  <button
                     onClick={closeExamDetails}
                     className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
                   >
@@ -1032,4 +778,4 @@ const ExamsPage = () => {
   );
 };
 
-export default ExamsPage;
+export default ExamsPage; 
