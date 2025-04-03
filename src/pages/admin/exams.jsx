@@ -95,24 +95,34 @@ const ExamsPage = () => {
 
   const fetchExamQuestions = useCallback(async (examId) => {
     try {
+      // First approach: Fetch all and filter client-side
       const response = await databases.listDocuments(
         databaseId,
-        "exam_questions",
-        [Query.equal("exam_id", examId)]
+        "exam_questions"
       );
       
+      // Filter for this exam (handles both string and array formats)
+      const filteredQuestions = response.documents.filter(doc => {
+        if (typeof doc.exam_id === 'string') {
+          return doc.exam_id === examId;
+        } else if (Array.isArray(doc.exam_id)) {
+          return doc.exam_id.includes(examId);
+        }
+        return false;
+      });
+  
       const marksMap = {};
       const questionIds = [];
-      response.documents.forEach(q => {
+      filteredQuestions.forEach(q => {
         marksMap[q.question_id] = q.marks;
         questionIds.push(q.question_id);
       });
       
       setQuestionMarks(marksMap);
-      return { documents: response.documents, questionIds };
+      return { documents: filteredQuestions, questionIds };
     } catch (err) {
       console.error("Error fetching exam questions:", err);
-      setError("Failed to load exam questions");
+      setError("Failed to load exam questions. Please try again.");
       return { documents: [], questionIds: [] };
     }
   }, [databaseId]);
@@ -123,7 +133,7 @@ const ExamsPage = () => {
       const examQuestions = await databases.listDocuments(
         databaseId,
         "exam_questions",
-        [Query.equal("exam_id", examId)]
+        [Query.equal("exam_id", [examId])] // Note the array format
       );
       
       // Then fetch the actual question documents
@@ -381,81 +391,80 @@ const ExamsPage = () => {
     }
   };
 
-  const handleSaveQuestions = async () => {
-    if (!selectedExam) return;
-  
-    setIsLoading(true);
-    setError(null);
-  
-    try {
-      const user = await account.get();
-      if (!user) {
-        throw new Error("You must be logged in to perform this action");
-      }
-  
-      // First get existing exam questions to know which ones to delete
-      const existingQuestions = await fetchExamQuestions(selectedExam.$id);
-      
-      // Delete questions that were unselected
-      const questionsToDelete = existingQuestions.documents.filter(
-        q => !selectedQuestions.includes(q.question_id)
-      );
-      
-      await Promise.all(
-        questionsToDelete.map(q => 
-          databases.deleteDocument(databaseId, "exam_questions", q.$id)
-        )
-      );
-  
-      // Add or update remaining selected questions
-      await Promise.all(
-        selectedQuestions.map(async (questionId, index) => {
-          const existingQuestion = existingQuestions.documents.find(
-            q => q.question_id === questionId
-          );
-          
-          if (existingQuestion) {
-            // Update existing relationship
-            await databases.updateDocument(
-              databaseId,
-              "exam_questions",
-              existingQuestion.$id,
-              {
-                order: index + 1,
-                marks: questionMarks[questionId] || 1
-              }
-            );
-          } else {
-            // Create new relationship
-            await databases.createDocument(
-              databaseId,
-              "exam_questions",
-              ID.unique(),
-              {
-                exam_id: [selectedExam.$id], // Note the array format for relationship
-                question_id: [questionId],   // Note the array format for relationship
-                order: index + 1,
-                marks: questionMarks[questionId] || 1
-              },
-              [
-                Permission.read(Role.any()),
-                Permission.update(Role.user(user.$id)),
-                Permission.delete(Role.user(user.$id))
-              ]
-            );
-          }
-        })
-      );
-  
-      closeQuestionModal();
-    } catch (err) {
-      console.error("Error saving exam questions:", err);
-      setError(err.message || "Failed to save exam questions");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handleSaveQuestions = async () => {
+  if (!selectedExam) return;
 
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    const user = await account.get();
+    if (!user) {
+      throw new Error("You must be logged in to perform this action");
+    }
+
+    // First get existing exam questions
+    const existingQuestions = await fetchExamQuestions(selectedExam.$id);
+    
+    // Delete questions that were unselected
+    const questionsToDelete = existingQuestions.documents.filter(
+      q => !selectedQuestions.includes(q.question_id)
+    );
+    
+    await Promise.all(
+      questionsToDelete.map(q => 
+        databases.deleteDocument(databaseId, "exam_questions", q.$id)
+      )
+    );
+
+    // Add new selected questions
+    await Promise.all(
+      selectedQuestions.map(async (questionId, index) => {
+        const existingQuestion = existingQuestions.documents.find(
+          q => q.question_id === questionId
+        );
+        
+        if (existingQuestion) {
+          // Update existing
+          await databases.updateDocument(
+            databaseId,
+            "exam_questions",
+            existingQuestion.$id,
+            {
+              order: index + 1,
+              marks: questionMarks[questionId] || 1
+            }
+          );
+        } else {
+          // Create new - using simple string fields
+          await databases.createDocument(
+            databaseId,
+            "exam_questions",
+            ID.unique(),
+            {
+              exam_id: selectedExam.$id, // Stored as string
+              question_id: questionId,   // Stored as string
+              order: index + 1,
+              marks: questionMarks[questionId] || 1
+            },
+            [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(user.$id)),
+              Permission.delete(Role.user(user.$id))
+            ]
+          );
+        }
+      })
+    );
+
+    closeQuestionModal();
+  } catch (err) {
+    console.error("Error saving exam questions:", err);
+    setError(err.message || "Failed to save exam questions");
+  } finally {
+    setIsLoading(false);
+  }
+};
   const deleteExam = async (examId) => {
     if (!confirm("Are you sure you want to delete this exam?")) return;
 
