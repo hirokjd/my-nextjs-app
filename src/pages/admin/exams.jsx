@@ -5,6 +5,7 @@ import { databases, ID, Query, Permission, Role } from "../../utils/appwrite";
 import { account } from "../../utils/appwrite";
 
 const ExamsPage = () => {
+  // State declarations remain the same
   const [exams, setExams] = useState([]);
   const [filteredExams, setFilteredExams] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,7 +22,6 @@ const ExamsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
-  const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [availableTags, setAvailableTags] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 10;
@@ -41,10 +41,11 @@ const ExamsPage = () => {
   const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
   const examsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
   const questionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID;
+  const examQuestionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID;
 
+  // Fetch exams
   const fetchExams = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const response = await databases.listDocuments(databaseId, examsCollectionId);
       const examsWithDates = response.documents.map(exam => ({
@@ -52,7 +53,6 @@ const ExamsPage = () => {
         exam_date_obj: new Date(exam.exam_date)
       }));
       
-      // Sort by date (upcoming first, expired last)
       const sortedExams = examsWithDates.sort((a, b) => {
         const now = new Date();
         const aIsExpired = a.exam_date_obj < now;
@@ -73,13 +73,13 @@ const ExamsPage = () => {
     }
   }, [databaseId, examsCollectionId]);
 
+  // Fetch all questions
   const fetchQuestions = useCallback(async () => {
     try {
       const response = await databases.listDocuments(databaseId, questionsCollectionId);
       setQuestions(response.documents);
       setFilteredQuestions(response.documents);
       
-      // Extract all unique tags from questions
       const tags = new Set();
       response.documents.forEach(question => {
         if (question.tags && Array.isArray(question.tags)) {
@@ -93,50 +93,40 @@ const ExamsPage = () => {
     }
   }, [databaseId, questionsCollectionId]);
 
+  // Fetch questions for a specific exam
   const fetchExamQuestions = useCallback(async (examId) => {
     try {
-      // First approach: Fetch all and filter client-side
       const response = await databases.listDocuments(
         databaseId,
-        "exam_questions"
+        examQuestionsCollectionId,
+        [Query.equal("exam_id", examId)]
       );
-      
-      // Filter for this exam (handles both string and array formats)
-      const filteredQuestions = response.documents.filter(doc => {
-        if (typeof doc.exam_id === 'string') {
-          return doc.exam_id === examId;
-        } else if (Array.isArray(doc.exam_id)) {
-          return doc.exam_id.includes(examId);
-        }
-        return false;
-      });
-  
+
       const marksMap = {};
       const questionIds = [];
-      filteredQuestions.forEach(q => {
+      response.documents.forEach(q => {
         marksMap[q.question_id] = q.marks;
         questionIds.push(q.question_id);
       });
-      
+
       setQuestionMarks(marksMap);
-      return { documents: filteredQuestions, questionIds };
+      return { documents: response.documents, questionIds };
     } catch (err) {
       console.error("Error fetching exam questions:", err);
       setError("Failed to load exam questions. Please try again.");
       return { documents: [], questionIds: [] };
     }
-  }, [databaseId]);
+  }, [databaseId, examQuestionsCollectionId]);
 
+  // Fetch full question details for an exam
   const fetchQuestionsForExam = useCallback(async (examId) => {
     try {
-      // First get all exam_question relationships for this exam
       const examQuestions = await databases.listDocuments(
         databaseId,
-        "exam_questions",
-        [Query.equal("exam_id", [examId])] // Note the array format
+        examQuestionsCollectionId,
+        [Query.equal("exam_id", examId)]
       );
-      
-      // Then fetch the actual question documents
+
       if (examQuestions.documents.length > 0) {
         const questionIds = examQuestions.documents.map(q => q.question_id);
         const questionsResponse = await databases.listDocuments(
@@ -144,34 +134,33 @@ const ExamsPage = () => {
           questionsCollectionId,
           [Query.equal("$id", questionIds)]
         );
-        
-        // Create a map of question marks
+
         const marksMap = {};
         examQuestions.documents.forEach(q => {
           marksMap[q.question_id] = q.marks;
         });
-        
+
         return {
           questions: questionsResponse.documents,
           marks: marksMap,
           examQuestions: examQuestions.documents
         };
       }
-      
+
       return { questions: [], marks: {}, examQuestions: [] };
     } catch (err) {
       console.error("Error fetching questions for exam:", err);
       setError("Failed to load exam questions");
       return { questions: [], marks: {}, examQuestions: [] };
     }
-  }, [databaseId, questionsCollectionId]);
+  }, [databaseId, questionsCollectionId, examQuestionsCollectionId]);
 
   useEffect(() => {
     fetchExams();
     fetchQuestions();
   }, [fetchExams, fetchQuestions]);
 
-  // Filter questions based on search term, difficulty and tags
+  // Filter questions
   useEffect(() => {
     let results = questions;
     
@@ -195,22 +184,21 @@ const ExamsPage = () => {
     }
     
     setFilteredQuestions(results);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   }, [searchTerm, difficultyFilter, tagFilter, questions]);
 
+  // Modal handlers
   const openModal = (exam = null) => {
     setSelectedExam(exam);
     setFormData(
-      exam
-        ? {
-            exam_id: exam.exam_id || "",
-            name: exam.name || "",
-            description: exam.description || "",
-            exam_date: exam.exam_date || "",
-            duration: exam.duration?.toString() || "",
-            status: exam.status || "active",
-          }
-        : initialFormData
+      exam ? {
+        exam_id: exam.exam_id || "",
+        name: exam.name || "",
+        description: exam.description || "",
+        exam_date: exam.exam_date || "",
+        duration: exam.duration?.toString() || "",
+        status: exam.status || "active",
+      } : initialFormData
     );
     setIsModalOpen(true);
   };
@@ -222,7 +210,6 @@ const ExamsPage = () => {
       const { questionIds, documents } = await fetchExamQuestions(exam.$id);
       setSelectedQuestions(questionIds);
       
-      // Initialize marks for all selected questions
       const marksMap = {};
       documents.forEach(q => {
         marksMap[q.question_id] = q.marks;
@@ -251,6 +238,7 @@ const ExamsPage = () => {
     }
   };
 
+  // Close modal handlers
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedExam(null);
@@ -274,20 +262,10 @@ const ExamsPage = () => {
     setFilteredQuestions(questions);
   };
 
-  const viewExamDetails = (exam) => {
-    setSelectedExamDetail(exam);
-  };
-
-  const closeExamDetails = () => {
-    setSelectedExamDetail(null);
-  };
-
+  // Other handlers
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleQuestionSelect = (questionId) => {
@@ -310,22 +288,16 @@ const ExamsPage = () => {
     }));
   };
 
+  // Form validation
   const validateForm = (data) => {
-    if (!data.exam_id.trim()) {
-      return "Exam ID is required";
-    }
-    if (!data.name.trim()) {
-      return "Exam name is required";
-    }
-    if (!data.exam_date) {
-      return "Exam date is required";
-    }
-    if (!data.duration || isNaN(parseInt(data.duration))) {
-      return "Duration must be a valid number";
-    }
+    if (!data.exam_id.trim()) return "Exam ID is required";
+    if (!data.name.trim()) return "Exam name is required";
+    if (!data.exam_date) return "Exam date is required";
+    if (!data.duration || isNaN(parseInt(data.duration))) return "Duration must be a valid number";
     return null;
   };
 
+  // Save exam
   const handleSave = async (data) => {
     const validationError = validateForm(data);
     if (validationError) {
@@ -338,24 +310,17 @@ const ExamsPage = () => {
 
     try {
       const user = await account.get();
-      if (!user) {
-        throw new Error("You must be logged in to perform this action");
-      }
+      if (!user) throw new Error("Authentication required");
 
-      const userId = user.$id;
-      const timestamp = new Date().toISOString();
       const durationInt = parseInt(data.duration, 10);
+      const timestamp = new Date().toISOString();
 
       if (selectedExam) {
         await databases.updateDocument(
           databaseId,
           examsCollectionId,
           selectedExam.$id,
-          {
-            ...data,
-            duration: durationInt,
-            modified_at: timestamp,
-          }
+          { ...data, duration: durationInt, modified_at: timestamp }
         );
       } else {
         await databases.createDocument(
@@ -363,20 +328,16 @@ const ExamsPage = () => {
           examsCollectionId,
           ID.unique(),
           {
-            exam_id: data.exam_id,
-            name: data.name,
-            description: data.description,
-            exam_date: data.exam_date,
+            ...data,
             duration: durationInt,
-            status: data.status,
-            created_by: userId,
+            created_by: user.$id,
             created_at: timestamp,
             modified_at: timestamp,
           },
           [
             Permission.read(Role.any()),
-            Permission.update(Role.user(userId)),
-            Permission.delete(Role.user(userId))
+            Permission.update(Role.user(user.$id)),
+            Permission.delete(Role.user(user.$id))
           ]
         );
       }
@@ -391,99 +352,90 @@ const ExamsPage = () => {
     }
   };
 
-const handleSaveQuestions = async () => {
-  if (!selectedExam) return;
+  // Save exam questions
+  const handleSaveQuestions = async () => {
+    if (!selectedExam) return;
 
-  setIsLoading(true);
-  setError(null);
+    setIsLoading(true);
+    setError(null);
 
-  try {
-    const user = await account.get();
-    if (!user) {
-      throw new Error("You must be logged in to perform this action");
+    try {
+      const user = await account.get();
+      if (!user) throw new Error("Authentication required");
+
+      const existingQuestions = await fetchExamQuestions(selectedExam.$id);
+      
+      // Delete removed questions
+      const questionsToDelete = existingQuestions.documents.filter(
+        q => !selectedQuestions.includes(q.question_id)
+      );
+      
+      await Promise.all(
+        questionsToDelete.map(q => 
+          databases.deleteDocument(databaseId, examQuestionsCollectionId, q.$id)
+        )
+      );
+
+      // Add/update questions
+      await Promise.all(
+        selectedQuestions.map(async (questionId, index) => {
+          const existing = existingQuestions.documents.find(
+            q => q.question_id === questionId
+          );
+          
+          if (existing) {
+            await databases.updateDocument(
+              databaseId,
+              examQuestionsCollectionId,
+              existing.$id,
+              { order: index + 1, marks: questionMarks[questionId] || 1 }
+            );
+          } else {
+            await databases.createDocument(
+              databaseId,
+              examQuestionsCollectionId,
+              ID.unique(),
+              {
+                exam_id: selectedExam.$id,
+                question_id: questionId,
+                order: index + 1,
+                marks: questionMarks[questionId] || 1
+              },
+              [
+                Permission.read(Role.any()),
+                Permission.update(Role.user(user.$id)),
+                Permission.delete(Role.user(user.$id))
+              ]
+            );
+          }
+        })
+      );
+
+      closeQuestionModal();
+    } catch (err) {
+      console.error("Error saving exam questions:", err);
+      setError(err.message || "Failed to save exam questions");
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // First get existing exam questions
-    const existingQuestions = await fetchExamQuestions(selectedExam.$id);
-    
-    // Delete questions that were unselected
-    const questionsToDelete = existingQuestions.documents.filter(
-      q => !selectedQuestions.includes(q.question_id)
-    );
-    
-    await Promise.all(
-      questionsToDelete.map(q => 
-        databases.deleteDocument(databaseId, "exam_questions", q.$id)
-      )
-    );
-
-    // Add new selected questions
-    await Promise.all(
-      selectedQuestions.map(async (questionId, index) => {
-        const existingQuestion = existingQuestions.documents.find(
-          q => q.question_id === questionId
-        );
-        
-        if (existingQuestion) {
-          // Update existing
-          await databases.updateDocument(
-            databaseId,
-            "exam_questions",
-            existingQuestion.$id,
-            {
-              order: index + 1,
-              marks: questionMarks[questionId] || 1
-            }
-          );
-        } else {
-          // Create new - using simple string fields
-          await databases.createDocument(
-            databaseId,
-            "exam_questions",
-            ID.unique(),
-            {
-              exam_id: selectedExam.$id, // Stored as string
-              question_id: questionId,   // Stored as string
-              order: index + 1,
-              marks: questionMarks[questionId] || 1
-            },
-            [
-              Permission.read(Role.any()),
-              Permission.update(Role.user(user.$id)),
-              Permission.delete(Role.user(user.$id))
-            ]
-          );
-        }
-      })
-    );
-
-    closeQuestionModal();
-  } catch (err) {
-    console.error("Error saving exam questions:", err);
-    setError(err.message || "Failed to save exam questions");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  // Delete exam
   const deleteExam = async (examId) => {
     if (!confirm("Are you sure you want to delete this exam?")) return;
 
     setIsLoading(true);
     try {
       const user = await account.get();
-      if (!user) {
-        throw new Error("You must be logged in to perform this action");
-      }
+      if (!user) throw new Error("Authentication required");
 
-      // First delete associated exam questions
       const examQuestions = await fetchExamQuestions(examId);
       await Promise.all(
         examQuestions.documents.map(q => 
-          databases.deleteDocument(databaseId, "exam_questions", q.$id)
+          databases.deleteDocument(databaseId, examQuestionsCollectionId, q.$id)
         )
       );
 
-      // Then delete the exam
       await databases.deleteDocument(databaseId, examsCollectionId, examId);
       await fetchExams();
       closeExamDetails();
@@ -495,6 +447,7 @@ const handleSaveQuestions = async () => {
     }
   };
 
+  // Helper functions
   const formatDate = (dateString) => {
     const options = { 
       year: 'numeric', 
@@ -512,15 +465,26 @@ const handleSaveQuestions = async () => {
     return examDateObj < now ? "Expired" : "Upcoming";
   };
 
-  // Pagination for questions
+  // Pagination
   const indexOfLastQuestion = currentPage * questionsPerPage;
   const indexOfFirstQuestion = indexOfLastQuestion - questionsPerPage;
   const currentQuestions = filteredQuestions.slice(indexOfFirstQuestion, indexOfLastQuestion);
   const totalPages = Math.ceil(filteredQuestions.length / questionsPerPage);
 
+  // View components
+  const viewExamDetails = (exam) => {
+    setSelectedExamDetail(exam);
+  };
+
+  const closeExamDetails = () => {
+    setSelectedExamDetail(null);
+  };
+
+  // Render
   return (
     <AdminLayout>
       <div className="container mx-auto px-4 py-6">
+        {/* Header and Add Exam button */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Manage Exams</h2>
           <button
@@ -531,12 +495,14 @@ const handleSaveQuestions = async () => {
           </button>
         </div>
 
+        {/* Error display */}
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
             <p>{error}</p>
           </div>
         )}
 
+        {/* Loading state */}
         {isLoading && !exams.length ? (
           <div className="flex justify-center items-center h-64">
             <p className="text-gray-500">Loading exams...</p>
@@ -553,6 +519,7 @@ const handleSaveQuestions = async () => {
                     : "bg-white border-blue-100"
                 }`}
               >
+                {/* Exam card content */}
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800">{exam.name}</h3>
@@ -608,6 +575,7 @@ const handleSaveQuestions = async () => {
           </div>
         )}
 
+        {/* Exam Modal */}
         {isModalOpen && (
           <Modal
             isOpen={isModalOpen}
@@ -635,10 +603,12 @@ const handleSaveQuestions = async () => {
           />
         )}
 
+        {/* Question Management Modal */}
         {isQuestionModalOpen && selectedExam && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">
+                {/* Modal header */}
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-xl font-bold text-gray-800">
@@ -658,12 +628,14 @@ const handleSaveQuestions = async () => {
                   </button>
                 </div>
 
+                {/* Error display */}
                 {error && (
                   <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
                     <p>{error}</p>
                   </div>
                 )}
 
+                {/* Filters */}
                 <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
@@ -714,6 +686,7 @@ const handleSaveQuestions = async () => {
                   </div>
                 </div>
 
+                {/* Questions list */}
                 <div className="space-y-3">
                   {currentQuestions.length > 0 ? (
                     currentQuestions.map((question) => (
@@ -827,6 +800,7 @@ const handleSaveQuestions = async () => {
                   </div>
                 )}
 
+                {/* Action buttons */}
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
                     onClick={closeQuestionModal}
@@ -848,6 +822,7 @@ const handleSaveQuestions = async () => {
           </div>
         )}
 
+        {/* View Questions Modal */}
         {isViewQuestionsModalOpen && selectedExam && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -952,6 +927,7 @@ const handleSaveQuestions = async () => {
           </div>
         )}
 
+        {/* Exam Details Modal */}
         {selectedExamDetail && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
