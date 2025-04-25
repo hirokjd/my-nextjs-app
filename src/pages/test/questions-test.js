@@ -21,6 +21,9 @@ const QuestionsTestPage = () => {
   const [newTag, setNewTag] = useState('');
   const [optionImageFiles, setOptionImageFiles] = useState([null, null, null, null]);
   const [questionImageFile, setQuestionImageFile] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [questionImagePreview, setQuestionImagePreview] = useState(null);
+  const [optionImagePreviews, setOptionImagePreviews] = useState([null, null, null, null]);
 
   const BUCKET_ID = 'questions';
   const databaseId = '67a5a946002e8a51f8fe';
@@ -31,7 +34,6 @@ const QuestionsTestPage = () => {
     try {
       const response = await databases.listDocuments(databaseId, collectionId);
       
-      // Fetch image URLs for questions and options
       const questionsWithImages = await Promise.all(
         response.documents.map(async (question) => {
           const imageUrl = question.image_id ? await getFileUrl(question.image_id) : null;
@@ -66,30 +68,42 @@ const QuestionsTestPage = () => {
     }
   };
 
-  const fetchQuestionsData = async () => {
-    await fetchQuestions();
-  };
-
   useEffect(() => {
-    fetchQuestionsData();
-  }, []);
+    fetchQuestions();
+  }, [fetchQuestions]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      // Upload question image if exists
+      // Handle image uploads
       let questionImageId = formData.image_id;
       if (questionImageFile) {
+        // Delete old image if editing
+        if (editingId && formData.image_id) {
+          try {
+            await storage.deleteFile(BUCKET_ID, formData.image_id);
+          } catch (err) {
+            console.error("Error deleting old image:", err.message);
+          }
+        }
         const uploadResponse = await storage.createFile(BUCKET_ID, ID.unique(), questionImageFile);
         questionImageId = uploadResponse.$id;
       }
 
-      // Upload option images
+      // Handle option images
       const uploadedOptionImages = await Promise.all(
         optionImageFiles.map(async (file, index) => {
           if (file) {
+            // Delete old image if editing
+            if (editingId && formData.options_image[index]) {
+              try {
+                await storage.deleteFile(BUCKET_ID, formData.options_image[index]);
+              } catch (err) {
+                console.error("Error deleting old option image:", err.message);
+              }
+            }
             const uploadResponse = await storage.createFile(BUCKET_ID, ID.unique(), file);
             return uploadResponse.$id;
           }
@@ -97,21 +111,99 @@ const QuestionsTestPage = () => {
         })
       );
 
-      await databases.createDocument(
-        databaseId, 
-        collectionId,
-        ID.unique(),
-        {
-          ...formData,
-          image_id: questionImageId,
-          options_text: formData.options_text.filter(opt => opt.trim() !== ''),
-          options_image: uploadedOptionImages,
-          tags: formData.tags
-        }
-      );
+      // Create or update document
+      if (editingId) {
+        await databases.updateDocument(
+          databaseId, 
+          collectionId,
+          editingId,
+          {
+            ...formData,
+            image_id: questionImageId,
+            options_text: formData.options_text.filter(opt => opt.trim() !== ''),
+            options_image: uploadedOptionImages,
+            tags: formData.tags
+          }
+        );
+      } else {
+        await databases.createDocument(
+          databaseId, 
+          collectionId,
+          ID.unique(),
+          {
+            ...formData,
+            image_id: questionImageId,
+            options_text: formData.options_text.filter(opt => opt.trim() !== ''),
+            options_image: uploadedOptionImages,
+            tags: formData.tags
+          }
+        );
+      }
       
       await fetchQuestions();
       resetForm();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (question) => {
+    setEditingId(question.$id);
+    setFormData({
+      question_id: question.question_id,
+      text: question.text,
+      image_id: question.image_id,
+      options_text: question.options_text || ['', '', '', ''],
+      options_image: question.options_image || ['', '', '', ''],
+      correct_answer: question.correct_answer || 0,
+      difficulty: question.difficulty || 'easy',
+      tags: question.tags || [],
+      created_by: question.created_by || 'test-user'
+    });
+    setQuestionImagePreview(question.imageUrl || null);
+    setOptionImagePreviews(question.optionsImageUrls || [null, null, null, null]);
+  };
+
+  const deleteQuestion = async (questionId) => {
+    if (!window.confirm("Are you sure you want to delete this question?")) return;
+    
+    setLoading(true);
+    try {
+      // First get the question to delete its images
+      const questionToDelete = questions.find(q => q.$id === questionId);
+      
+      // Delete question image if exists
+      if (questionToDelete.image_id) {
+        try {
+          await storage.deleteFile(BUCKET_ID, questionToDelete.image_id);
+        } catch (err) {
+          console.error("Error deleting question image:", err.message);
+        }
+      }
+      
+      // Delete option images if exist
+      await Promise.all(
+        questionToDelete.options_image.map(async (imgId) => {
+          if (imgId) {
+            try {
+              await storage.deleteFile(BUCKET_ID, imgId);
+            } catch (err) {
+              console.error("Error deleting option image:", err.message);
+            }
+          }
+        })
+      );
+      
+      // Delete the document
+      await databases.deleteDocument(databaseId, collectionId, questionId);
+      await fetchQuestions();
+      
+      // Reset form if editing the deleted question
+      if (editingId === questionId) {
+        resetForm();
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -134,6 +226,9 @@ const QuestionsTestPage = () => {
     setOptionImageFiles([null, null, null, null]);
     setQuestionImageFile(null);
     setNewTag('');
+    setEditingId(null);
+    setQuestionImagePreview(null);
+    setOptionImagePreviews([null, null, null, null]);
   };
 
   const handleChange = (e) => {
@@ -151,6 +246,7 @@ const QuestionsTestPage = () => {
     const file = e.target.files[0];
     if (file) {
       setQuestionImageFile(file);
+      setQuestionImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -160,6 +256,10 @@ const QuestionsTestPage = () => {
       const newOptionFiles = [...optionImageFiles];
       newOptionFiles[index] = file;
       setOptionImageFiles(newOptionFiles);
+      
+      const newPreviews = [...optionImagePreviews];
+      newPreviews[index] = URL.createObjectURL(file);
+      setOptionImagePreviews(newPreviews);
     }
   };
 
@@ -177,30 +277,22 @@ const QuestionsTestPage = () => {
     }));
   };
 
-  const deleteQuestion = async (questionId) => {
-    if (!confirm("Are you sure you want to delete this question?")) return;
-    
-    setLoading(true);
-    try {
-      await databases.deleteDocument(databaseId, collectionId, questionId);
-      await fetchQuestions();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Questions Collection Test</h1>
+      <h1 className="text-2xl font-bold mb-6">Questions Management</h1>
       
-      {error && <div className="bg-red-100 p-4 mb-4 rounded">{error}</div>}
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
+          <p>{error}</p>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Form */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Add New Question</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {editingId ? 'Edit Question' : 'Add New Question'}
+          </h2>
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label className="block mb-2">Question ID</label>
@@ -211,6 +303,7 @@ const QuestionsTestPage = () => {
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
                 required
+                disabled={editingId}
               />
             </div>
             
@@ -222,6 +315,7 @@ const QuestionsTestPage = () => {
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
                 rows="3"
+                required
               />
             </div>
             
@@ -233,9 +327,14 @@ const QuestionsTestPage = () => {
                 className="w-full p-2 border rounded"
                 accept="image/*"
               />
-              {questionImageFile && (
+              {questionImagePreview && (
                 <div className="mt-2">
-                  <p className="text-sm text-green-600">Image selected: {questionImageFile.name}</p>
+                  <img 
+                    src={questionImagePreview} 
+                    alt="Preview" 
+                    className="max-h-40 w-auto rounded border"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Image preview</p>
                 </div>
               )}
             </div>
@@ -252,6 +351,7 @@ const QuestionsTestPage = () => {
                       onChange={(e) => handleOptionChange(index, e.target.value)}
                       className="w-full p-2 border rounded"
                       placeholder={`Option ${index + 1}`}
+                      required
                     />
                   </div>
                   
@@ -263,8 +363,15 @@ const QuestionsTestPage = () => {
                       className="w-full p-2 border rounded"
                       accept="image/*"
                     />
-                    {optionImageFiles[index] && (
-                      <p className="text-sm text-green-600 mt-1">Image selected: {optionImageFiles[index].name}</p>
+                    {optionImagePreviews[index] && (
+                      <div className="mt-2">
+                        <img 
+                          src={optionImagePreviews[index]} 
+                          alt={`Option ${index + 1} preview`} 
+                          className="max-h-20 w-auto rounded border"
+                        />
+                        <p className="text-sm text-gray-500">Image preview</p>
+                      </div>
                     )}
                   </div>
                   
@@ -309,7 +416,7 @@ const QuestionsTestPage = () => {
                 <button
                   type="button"
                   onClick={handleAddTag}
-                  className="bg-gray-200 px-4 rounded-r"
+                  className="bg-gray-200 px-4 rounded-r hover:bg-gray-300"
                 >
                   Add
                 </button>
@@ -330,31 +437,39 @@ const QuestionsTestPage = () => {
               </div>
             </div>
             
-            <div className="mb-4">
-              <label className="block mb-2">Created By</label>
-              <input
-                type="text"
-                name="created_by"
-                value={formData.created_by}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-                required
-              />
+            <div className="flex space-x-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex-1"
+              >
+                {loading ? 'Saving...' : editingId ? 'Update Question' : 'Add Question'}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              {loading ? 'Adding...' : 'Add Question'}
-            </button>
           </form>
         </div>
         
         {/* Data Display */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Questions List</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Questions List</h2>
+            <button 
+              onClick={fetchQuestions}
+              disabled={loading}
+              className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
+            >
+              Refresh
+            </button>
+          </div>
           {loading ? (
             <p>Loading questions...</p>
           ) : questions.length === 0 ? (
@@ -362,19 +477,37 @@ const QuestionsTestPage = () => {
           ) : (
             <div className="space-y-4">
               {questions.map(question => (
-                <div key={question.$id} className="border p-4 rounded-lg">
+                <div 
+                  key={question.$id} 
+                  className="border p-4 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleEdit(question)}
+                >
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium">{question.question_id}</h3>
-                      <p className="text-sm text-gray-500">{question.difficulty}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                          question.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                          question.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {question.difficulty}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteQuestion(question.$id);
+                          }}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          disabled={loading}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => deleteQuestion(question.$id)}
-                      className="text-red-500 hover:text-red-700"
-                      disabled={loading}
-                    >
-                      Delete
-                    </button>
+                    <span className="text-sm text-gray-500">
+                      {new Date(question.$createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                   
                   <div className="mt-3">
