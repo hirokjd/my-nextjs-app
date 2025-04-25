@@ -29,7 +29,7 @@ const Login = () => {
         if (student) {
           localStorage.setItem("studentSession", JSON.stringify(student)); // ✅ Store session
           console.log("Student session saved:", student); // ✅ Debugging log
-          router.push("/student/dashboard");
+          router.push("/student");
         } else {
           alert("Invalid student credentials.");
         }
