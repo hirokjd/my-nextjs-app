@@ -26,6 +26,13 @@ const ResultsTestPage = () => {
     try {
       const response = await databases.listDocuments(databaseId, collectionId);
       setResults(response.documents);
+      // Then fetch all related students and exams in parallel
+      const [studentsResponse, examsResponse] = await Promise.all([
+        databases.listDocuments(databaseId, 'students'),
+        databases.listDocuments(databaseId, 'exams')
+      ]);
+      setStudents(studentsResponse.documents);
+      setExams(examsResponse.documents);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -58,7 +65,7 @@ const ResultsTestPage = () => {
     try {
       const newResultId = ID.unique();
       const percentage = (formData.score / formData.total_marks) * 100;
-      const status = percentage >= 50 ? 'passed' : 'failed';
+      const status = percentage >= 30 ? 'passed' : 'failed';
 
       const attemptedAt = new Date(formData.attempted_at);
       const completedAt = new Date(attemptedAt.getTime() + formData.time_taken * 60000);
@@ -107,12 +114,12 @@ const ResultsTestPage = () => {
 
   const getStudentName = (studentId) => {
     const student = students.find(s => s.$id === studentId);
-    return student ? student.name : 'Unknown Student';
+    return student ? `${student.name} (${student.email})` : 'Unknown Student';
   };
 
   const getExamName = (examId) => {
     const exam = exams.find(e => e.$id === examId);
-    return exam ? exam.name : 'Unknown Exam';
+    return exam ? `${exam.name} (${exam.exam_id})` : 'Unknown Exam';
   };
 
   const formatDate = (dateString) => {
