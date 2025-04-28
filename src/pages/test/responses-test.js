@@ -22,9 +22,9 @@ const ResponsesTestPage = () => {
   const collectionId = 'responses';
 
   const generateResponseId = (examId, studentId, questionId) => {
-    const examPart = examId.substring(0, 8);
-    const studentPart = studentId.substring(0, 8);
-    const questionPart = questionId.substring(0, 8);
+    const examPart = examId?.substring(0, 8) || 'exam';
+    const studentPart = studentId?.substring(0, 8) || 'student';
+    const questionPart = questionId?.substring(0, 8) || 'quest';
     const uniquePart = ID.unique().substring(0, 4);
     const combined = `${examPart}-${studentPart}-${questionPart}-${uniquePart}`;
     return combined.substring(0, 36);
@@ -40,15 +40,33 @@ const ResponsesTestPage = () => {
         databases.listDocuments(databaseId, 'questions', [Query.limit(100)])
       ]);
 
-      const fixedResponses = responsesRes.documents.map(response => ({
-        ...response,
-        student_id: typeof response.student_id === 'object' ? 
-          response.student_id.student_id || response.student_id.$id : response.student_id,
-        exam_id: typeof response.exam_id === 'object' ? 
-          response.exam_id.exam_id || response.exam_id.$id : response.exam_id,
-        question_id: typeof response.question_id === 'object' ? 
-          response.question_id.question_id || response.question_id.$id : response.question_id
-      }));
+      const fixedResponses = responsesRes.documents.map(response => {
+        // Safely handle relationship fields that might be null
+        const studentId = response.student_id 
+          ? (typeof response.student_id === 'object' 
+              ? response.student_id.student_id || response.student_id.$id 
+              : response.student_id)
+          : null;
+        
+        const examId = response.exam_id 
+          ? (typeof response.exam_id === 'object' 
+              ? response.exam_id.exam_id || response.exam_id.$id 
+              : response.exam_id)
+          : null;
+        
+        const questionId = response.question_id 
+          ? (typeof response.question_id === 'object' 
+              ? response.question_id.question_id || response.question_id.$id 
+              : response.question_id)
+          : null;
+
+        return {
+          ...response,
+          student_id: studentId,
+          exam_id: examId,
+          question_id: questionId
+        };
+      });
 
       setResponses(fixedResponses);
       setStudents(studentsRes.documents);
@@ -71,7 +89,7 @@ const ResponsesTestPage = () => {
         exam_id: formData.exam_id,
         question_id: formData.question_id,
         selected_option: parseInt(formData.selected_option),
-        response_id: generateResponseId(
+        response_id: editingId || generateResponseId(
           formData.exam_id,
           formData.student_id,
           formData.question_id
@@ -100,19 +118,11 @@ const ResponsesTestPage = () => {
   };
 
   const handleEdit = (response) => {
-    // Ensure we're using the correct ID format (either direct ID or from object)
-    const studentId = typeof response.student_id === 'object' ? 
-      response.student_id.student_id || response.student_id.$id : response.student_id;
-    const examId = typeof response.exam_id === 'object' ? 
-      response.exam_id.exam_id || response.exam_id.$id : response.exam_id;
-    const questionId = typeof response.question_id === 'object' ? 
-      response.question_id.question_id || response.question_id.$id : response.question_id;
-
     setFormData({
-      student_id: studentId,
-      exam_id: examId,
-      question_id: questionId,
-      selected_option: response.selected_option.toString()
+      student_id: response.student_id || '',
+      exam_id: response.exam_id || '',
+      question_id: response.question_id || '',
+      selected_option: response.selected_option?.toString() || '0'
     });
     setEditingId(response.$id);
   };
@@ -145,33 +155,40 @@ const ResponsesTestPage = () => {
   };
 
   const getStudentName = (studentId) => {
+    if (!studentId) return 'No student';
     const student = students.find(s => s.student_id === studentId || s.$id === studentId);
     return student?.name || 'Unknown Student';
   };
 
   const getStudentEmail = (studentId) => {
+    if (!studentId) return 'No email';
     const student = students.find(s => s.student_id === studentId || s.$id === studentId);
     return student?.email || 'No email';
   };
 
   const getExamName = (examId) => {
+    if (!examId) return 'No exam';
     const exam = exams.find(e => e.exam_id === examId || e.$id === examId);
     return exam?.name || 'Unknown Exam';
   };
 
   const getQuestionText = (questionId) => {
+    if (!questionId) return 'No question';
     const question = questions.find(q => q.question_id === questionId || q.$id === questionId);
-    return question?.text || `Question ${question?.question_id || 'Unknown'}`;
+    return question?.text?.substring(0, 50) || `Question ${question?.question_id || 'Unknown'}`;
   };
 
   const isCorrectAnswer = (response) => {
+    if (!response.question_id) return false;
     const question = questions.find(q => 
       q.question_id === response.question_id || q.$id === response.question_id
     );
     return question && response.selected_option === question.correct_answer;
   };
 
-  useEffect(() => { fetchAllData(); }, []);
+  useEffect(() => { 
+    fetchAllData(); 
+  }, []);
 
   return (
     <div className="container mx-auto p-4">
@@ -333,9 +350,11 @@ const ResponsesTestPage = () => {
                   <div className="mt-3 space-y-1 text-sm text-gray-600">
                     <p><span className="font-medium text-gray-800">Exam:</span> {getExamName(response.exam_id)}</p>
                     <p><span className="font-medium text-gray-800">Question:</span> {getQuestionText(response.question_id)}</p>
-                    <p className={`text-sm ${isCorrectAnswer(response) ? 'text-green-600' : 'text-red-600'}`}>
-                      {isCorrectAnswer(response) ? '✓ Correct Answer' : '✗ Incorrect Answer'}
-                    </p>
+                    {response.question_id && (
+                      <p className={`text-sm ${isCorrectAnswer(response) ? 'text-green-600' : 'text-red-600'}`}>
+                        {isCorrectAnswer(response) ? '✓ Correct Answer' : '✗ Incorrect Answer'}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-500">ID: {response.response_id || response.$id}</p>
                   </div>
                   
