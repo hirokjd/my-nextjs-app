@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { databases, storage } from '../../utils/appwrite';
 import { ID } from 'appwrite';
+import { Query } from 'appwrite';
 
 const QuestionsTestPage = () => {
   const [questions, setQuestions] = useState([]);
@@ -32,7 +33,10 @@ const QuestionsTestPage = () => {
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await databases.listDocuments(databaseId, collectionId);
+      // const response = await databases.listDocuments(databaseId, collectionId);
+      const response = await databases.listDocuments(databaseId, collectionId, [
+        Query.limit(100) // Increase this number as needed
+      ]);
       
       const questionsWithImages = await Promise.all(
         response.documents.map(async (question) => {
