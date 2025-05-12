@@ -18,7 +18,20 @@ const ExamDetailsPage = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
+        // Verify environment variables are set
+        const requiredEnvVars = [
+          'NEXT_PUBLIC_APPWRITE_DATABASE_ID',
+          'NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID',
+          'NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID',
+          'NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID'
+        ];
+
+        const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+        if (missingVars.length > 0) {
+          throw new Error(`Missing environment variables: ${missingVars.join(', ')}`);
+        }
+
         // Fetch exam details
         const examData = await databases.getDocument(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
@@ -34,7 +47,7 @@ const ExamDetailsPage = () => {
         );
         
         // Extract question IDs
-        const questionIds = examQuestions.documents.map(q => q.question_id);
+        const questionIds = examQuestions.documents.map(q => q.question_id).filter(Boolean);
         
         // Fetch actual questions if there are any
         let questionsData = { documents: [] };
@@ -60,8 +73,8 @@ const ExamDetailsPage = () => {
         setExam(examData);
         setQuestions(questionsWithMarks);
       } catch (err) {
-        setError('Failed to load exam data. Please try again.');
         console.error('Exam data fetch error:', err);
+        setError(err.message || 'Failed to load exam data. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -104,13 +117,22 @@ const ExamDetailsPage = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6">
-          <p>{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-2 text-sm text-red-700 hover:underline"
-          >
-            Try again
-          </button>
+          <p className="font-medium">Error loading exam</p>
+          <p className="mt-1">{error}</p>
+          <div className="mt-4 flex gap-3">
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            >
+              Try again
+            </button>
+            <Link 
+              href="/student/exams"
+              className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-sm hover:bg-gray-300"
+            >
+              Back to exams
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -121,7 +143,10 @@ const ExamDetailsPage = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
           <p>Exam not found</p>
-          <Link href="/student/exams" className="mt-2 text-sm text-yellow-700 hover:underline">
+          <Link 
+            href="/student/exams" 
+            className="mt-2 inline-block text-sm text-yellow-700 hover:underline"
+          >
             Back to exams
           </Link>
         </div>
