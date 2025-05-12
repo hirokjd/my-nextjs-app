@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import AdminLayout from "../../components/AdminLayout";
-import { account, databases } from "../../utils/appwrite";
+import { account } from "../../utils/appwrite";
 
 const SettingsPage = () => {
   const [admin, setAdmin] = useState({ name: "", email: "" });
@@ -16,13 +15,6 @@ const SettingsPage = () => {
     try {
       const user = await account.get();
       setAdmin({ name: user.name, email: user.email });
-
-      const settings = await databases.getDocument(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_SETTINGS_COLLECTION_ID,
-        "system_preferences"
-      );
-      setPreferences(settings.preferences || { notifications: true });
     } catch (error) {
       console.error("Error fetching admin details:", error.message);
     }
@@ -52,22 +44,8 @@ const SettingsPage = () => {
     }
   };
 
-  const handlePreferencesUpdate = async () => {
-    try {
-      await databases.updateDocument(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_SETTINGS_COLLECTION_ID,
-        "system_preferences",
-        { preferences }
-      );
-      alert("Preferences updated!");
-    } catch (error) {
-      console.error("Error updating preferences:", error.message);
-    }
-  };
-
   return (
-    <AdminLayout>
+    <div className="p-6 max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">⚙️ Admin Settings</h2>
 
       {/* Profile Settings */}
@@ -120,22 +98,6 @@ const SettingsPage = () => {
         </button>
       </div>
 
-      {/* System Preferences */}
-      <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-3">⚙️ System Preferences</h3>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={preferences.notifications}
-            onChange={(e) => setPreferences({ ...preferences, notifications: e.target.checked })}
-          />
-          Enable Notifications
-        </label>
-        <button className="bg-blue-500 text-white px-4 py-2 rounded mt-4" onClick={handlePreferencesUpdate}>
-          Save Preferences
-        </button>
-      </div>
-
       {/* API Key Management */}
       <div className="bg-white shadow-md rounded-lg p-6">
         <h3 className="text-lg font-semibold mb-3">🔑 API Key Management</h3>
@@ -148,7 +110,7 @@ const SettingsPage = () => {
         />
         <button className="bg-red-500 text-white px-4 py-2 rounded">Update API Key</button>
       </div>
-    </AdminLayout>
+    </div>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import AdminLayout from "../../components/AdminLayout";
+// import AdminLayout from "../../components/AdminLayout";
 import { databases, account } from "../../utils/appwrite";
 import { BarChart, Users, FileText, CheckCircle, ClipboardList } from "lucide-react";
 import Link from "next/link";
@@ -91,32 +91,28 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      </AdminLayout>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <AdminLayout>
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-          <p>{error}</p>
-          <button 
-            onClick={fetchDashboardData}
-            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      </AdminLayout>
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
+        <p>{error}</p>
+        <button 
+          onClick={fetchDashboardData}
+          className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <h2 className="text-2xl font-bold mb-6">Admin Dashboard</h2>
 
       {/* Overview Cards - Updated to show only available data */}
@@ -187,7 +183,7 @@ const Dashboard = () => {
           </div>
         ))}
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

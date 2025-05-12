@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import AdminLayout from "../../components/AdminLayout";
 import Modal from "../../components/Modal";
 import { databases, ID, Query, Permission, Role } from "../../utils/appwrite";
 import { account } from "../../utils/appwrite";
@@ -482,386 +481,234 @@ const ExamsPage = () => {
 
   // Render
   return (
-    <AdminLayout>
-      <div className="container mx-auto px-4 py-6">
-        {/* Header and Add Exam button */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Manage Exams</h2>
-          <button
-            onClick={() => openModal()}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            + Add Exam
-          </button>
+    <div className="container mx-auto px-4 py-6">
+      {/* Header and Add Exam button */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Manage Exams</h2>
+        <button
+          onClick={() => openModal()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+        >
+          + Add Exam
+        </button>
+      </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+          <p>{error}</p>
         </div>
+      )}
 
-        {/* Error display */}
-        {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
-            <p>{error}</p>
-          </div>
-        )}
-
-        {/* Loading state */}
-        {isLoading && !exams.length ? (
-          <div className="flex justify-center items-center h-64">
-            <p className="text-gray-500">Loading exams...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredExams.map((exam) => (
-              <div 
-                key={exam.$id}
-                onClick={() => viewExamDetails(exam)}
-                className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                  getExamStatus(exam.exam_date) === "Expired" 
-                    ? "bg-gray-50 border-gray-200" 
-                    : "bg-white border-blue-100"
-                }`}
-              >
-                {/* Exam card content */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">{exam.name}</h3>
-                    <p className="text-sm text-gray-600">{exam.exam_id}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      exam.status === "active" 
-                        ? "bg-green-100 text-green-800" 
-                        : exam.status === "completed" 
-                          ? "bg-blue-100 text-blue-800" 
-                          : "bg-gray-100 text-gray-800"
-                    }`}>
-                      {exam.status}
-                    </span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      getExamStatus(exam.exam_date) === "Expired" 
-                        ? "bg-red-100 text-red-800" 
-                        : "bg-green-100 text-green-800"
-                    }`}>
-                      {getExamStatus(exam.exam_date)}
-                    </span>
-                  </div>
+      {/* Loading state */}
+      {isLoading && !exams.length ? (
+        <div className="flex justify-center items-center h-64">
+          <p className="text-gray-500">Loading exams...</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredExams.map((exam) => (
+            <div 
+              key={exam.$id}
+              onClick={() => viewExamDetails(exam)}
+              className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                getExamStatus(exam.exam_date) === "Expired" 
+                  ? "bg-gray-50 border-gray-200" 
+                  : "bg-white border-blue-100"
+              }`}
+            >
+              {/* Exam card content */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">{exam.name}</h3>
+                  <p className="text-sm text-gray-600">{exam.exam_id}</p>
                 </div>
-                <div className="mt-2 text-sm text-gray-600">
-                  <p>{formatDate(exam.exam_date)} • {exam.duration} minutes</p>
-                  {exam.description && (
-                    <p className="mt-1 line-clamp-2">{exam.description}</p>
-                  )}
-                </div>
-                <div className="mt-3 flex space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openQuestionModal(exam);
-                    }}
-                    className="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
-                  >
-                    Manage Questions
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openViewQuestionsModal(exam);
-                    }}
-                    className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                  >
-                    View Questions
-                  </button>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    exam.status === "active" 
+                      ? "bg-green-100 text-green-800" 
+                      : exam.status === "completed" 
+                        ? "bg-blue-100 text-blue-800" 
+                        : "bg-gray-100 text-gray-800"
+                  }`}>
+                    {exam.status}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    getExamStatus(exam.exam_date) === "Expired" 
+                      ? "bg-red-100 text-red-800" 
+                      : "bg-green-100 text-green-800"
+                  }`}>
+                    {getExamStatus(exam.exam_date)}
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Exam Modal */}
-        {isModalOpen && (
-          <Modal
-            isOpen={isModalOpen}
-            title={selectedExam ? "Edit Exam" : "Add Exam"}
-            onClose={closeModal}
-            onSave={handleSave}
-            initialData={formData}
-            fields={[
-              { name: "exam_id", label: "Exam ID", type: "text", required: true },
-              { name: "name", label: "Exam Name", type: "text", required: true },
-              { name: "description", label: "Description", type: "textarea" },
-              { name: "exam_date", label: "Exam Date", type: "datetime-local", required: true },
-              { name: "duration", label: "Duration (minutes)", type: "number", required: true },
-              {
-                name: "status",
-                label: "Status",
-                type: "select",
-                options: ["active", "inactive", "completed"],
-                required: true,
-              },
-            ]}
-            onChange={handleInputChange}
-            isLoading={isLoading}
-            error={error}
-          />
-        )}
-
-        {/* Question Management Modal */}
-        {isQuestionModalOpen && selectedExam && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                {/* Modal header */}
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">
-                      Manage Questions for {selectedExam.name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {selectedQuestions.length} question(s) selected
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeQuestionModal}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Error display */}
-                {error && (
-                  <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
-                    <p>{error}</p>
-                  </div>
+              <div className="mt-2 text-sm text-gray-600">
+                <p>{formatDate(exam.exam_date)} • {exam.duration} minutes</p>
+                {exam.description && (
+                  <p className="mt-1 line-clamp-2">{exam.description}</p>
                 )}
-
-                {/* Filters */}
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                      Search Questions
-                    </label>
-                    <input
-                      type="text"
-                      id="search"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search by text or ID..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">
-                      Filter by Difficulty
-                    </label>
-                    <select
-                      id="difficulty"
-                      value={difficultyFilter}
-                      onChange={(e) => setDifficultyFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="all">All Difficulties</option>
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
-                      Filter by Tag
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="tags"
-                        value={tagFilter}
-                        onChange={(e) => setTagFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Tags</option>
-                        {availableTags.map(tag => (
-                          <option key={tag} value={tag}>{tag}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Questions list */}
-                <div className="space-y-3">
-                  {currentQuestions.length > 0 ? (
-                    currentQuestions.map((question) => (
-                      <div 
-                        key={question.$id} 
-                        className={`p-4 border rounded-lg transition-colors ${
-                          selectedQuestions.includes(question.$id) 
-                            ? "bg-blue-50 border-blue-200" 
-                            : "bg-white border-gray-200 hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedQuestions.includes(question.$id)}
-                            onChange={() => handleQuestionSelect(question.$id)}
-                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-medium text-gray-800">
-                                {question.text || "Question"}
-                              </h4>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                question.difficulty === "easy" 
-                                  ? "bg-green-100 text-green-800" 
-                                  : question.difficulty === "medium" 
-                                    ? "bg-yellow-100 text-yellow-800" 
-                                    : "bg-red-100 text-red-800"
-                              }`}>
-                                {question.difficulty}
-                              </span>
-                            </div>
-                            <div className="mt-1 text-sm text-gray-600">
-                              <span className="mr-2">ID: {question.question_id}</span>
-                              <span>Type: {question.type}</span>
-                              {question.tags && question.tags.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {question.tags.map(tag => (
-                                    <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            
-                            {selectedQuestions.includes(question.$id) && (
-                              <div className="mt-3 flex items-center">
-                                <label htmlFor={`marks-${question.$id}`} className="mr-2 text-sm text-gray-700">
-                                  Marks:
-                                </label>
-                                <input
-                                  type="number"
-                                  id={`marks-${question.$id}`}
-                                  min="1"
-                                  value={questionMarks[question.$id] || 1}
-                                  onChange={(e) => handleMarksChange(question.$id, e.target.value)}
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
-                                />
-                              </div>
-                            )}
-                            
-                            {question.options_text && (
-                              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {question.options_text.map((option, index) => (
-                                  <div 
-                                    key={index} 
-                                    className={`text-sm p-2 rounded ${
-                                      question.correct_answer === index 
-                                        ? "bg-green-100 text-green-800" 
-                                        : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {option}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No questions found matching your criteria
-                    </div>
-                  )}
-                </div>
-
-                {/* Pagination */}
-                {filteredQuestions.length > questionsPerPage && (
-                  <div className="mt-6 flex justify-between items-center">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm text-gray-700">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    onClick={closeQuestionModal}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-                    disabled={isLoading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveQuestions}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Saving...' : 'Save Questions'}
-                  </button>
-                </div>
+              </div>
+              <div className="mt-3 flex space-x-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openQuestionModal(exam);
+                  }}
+                  className="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
+                >
+                  Manage Questions
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openViewQuestionsModal(exam);
+                  }}
+                  className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                >
+                  View Questions
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
+      )}
 
-        {/* View Questions Modal */}
-        {isViewQuestionsModalOpen && selectedExam && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">
-                      Questions for {selectedExam.name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {filteredQuestions.length} question(s)
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeViewQuestionsModal}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+      {/* Exam Modal */}
+      {isModalOpen && (
+        <Modal
+          isOpen={isModalOpen}
+          title={selectedExam ? "Edit Exam" : "Add Exam"}
+          onClose={closeModal}
+          onSave={handleSave}
+          initialData={formData}
+          fields={[
+            { name: "exam_id", label: "Exam ID", type: "text", required: true },
+            { name: "name", label: "Exam Name", type: "text", required: true },
+            { name: "description", label: "Description", type: "textarea" },
+            { name: "exam_date", label: "Exam Date", type: "datetime-local", required: true },
+            { name: "duration", label: "Duration (minutes)", type: "number", required: true },
+            {
+              name: "status",
+              label: "Status",
+              type: "select",
+              options: ["active", "inactive", "completed"],
+              required: true,
+            },
+          ]}
+          onChange={handleInputChange}
+          isLoading={isLoading}
+          error={error}
+        />
+      )}
+
+      {/* Question Management Modal */}
+      {isQuestionModalOpen && selectedExam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Modal header */}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">
+                    Manage Questions for {selectedExam.name}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {selectedQuestions.length} question(s) selected
+                  </p>
                 </div>
+                <button
+                  onClick={closeQuestionModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-                {error && (
-                  <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
-                    <p>{error}</p>
+              {/* Error display */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
+                  <p>{error}</p>
+                </div>
+              )}
+
+              {/* Filters */}
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+                    Search Questions
+                  </label>
+                  <input
+                    type="text"
+                    id="search"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by text or ID..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">
+                    Filter by Difficulty
+                  </label>
+                  <select
+                    id="difficulty"
+                    value={difficultyFilter}
+                    onChange={(e) => setDifficultyFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Difficulties</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
+                    Filter by Tag
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="tags"
+                      value={tagFilter}
+                      onChange={(e) => setTagFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="all">All Tags</option>
+                      {availableTags.map(tag => (
+                        <option key={tag} value={tag}>{tag}</option>
+                      ))}
+                    </select>
                   </div>
-                )}
+                </div>
+              </div>
 
-                <div className="space-y-4">
-                  {filteredQuestions.length > 0 ? (
-                    filteredQuestions.map((question) => (
-                      <div key={question.$id} className="p-4 border border-gray-200 rounded-lg bg-white">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-medium text-gray-800">
-                            {question.text || "Question"}
-                          </h4>
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
+              {/* Questions list */}
+              <div className="space-y-3">
+                {currentQuestions.length > 0 ? (
+                  currentQuestions.map((question) => (
+                    <div 
+                      key={question.$id} 
+                      className={`p-4 border rounded-lg transition-colors ${
+                        selectedQuestions.includes(question.$id) 
+                          ? "bg-blue-50 border-blue-200" 
+                          : "bg-white border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedQuestions.includes(question.$id)}
+                          onChange={() => handleQuestionSelect(question.$id)}
+                          className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-medium text-gray-800">
+                              {question.text || "Question"}
+                            </h4>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
                               question.difficulty === "easy" 
                                 ? "bg-green-100 text-green-800" 
                                 : question.difficulty === "medium" 
@@ -870,150 +717,300 @@ const ExamsPage = () => {
                             }`}>
                               {question.difficulty}
                             </span>
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                              Marks: {questionMarks[question.$id] || 1}
-                            </span>
                           </div>
-                        </div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          <span className="mr-2">ID: {question.question_id}</span>
-                          <span>Type: {question.type}</span>
-                          {question.tags && question.tags.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {question.tags.map(tag => (
-                                <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                  {tag}
-                                </span>
+                          <div className="mt-1 text-sm text-gray-600">
+                            <span className="mr-2">ID: {question.question_id}</span>
+                            <span>Type: {question.type}</span>
+                            {question.tags && question.tags.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {question.tags.map(tag => (
+                                  <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {selectedQuestions.includes(question.$id) && (
+                            <div className="mt-3 flex items-center">
+                              <label htmlFor={`marks-${question.$id}`} className="mr-2 text-sm text-gray-700">
+                                Marks:
+                              </label>
+                              <input
+                                type="number"
+                                id={`marks-${question.$id}`}
+                                min="1"
+                                value={questionMarks[question.$id] || 1}
+                                onChange={(e) => handleMarksChange(question.$id, e.target.value)}
+                                className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                              />
+                            </div>
+                          )}
+                          
+                          {question.options_text && (
+                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {question.options_text.map((option, index) => (
+                                <div 
+                                  key={index} 
+                                  className={`text-sm p-2 rounded ${
+                                    question.correct_answer === index 
+                                      ? "bg-green-100 text-green-800" 
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {option}
+                                </div>
                               ))}
                             </div>
                           )}
                         </div>
-                        
-                        {question.options_text && (
-                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {question.options_text.map((option, index) => (
-                              <div 
-                                key={index} 
-                                className={`text-sm p-2 rounded ${
-                                  question.correct_answer === index 
-                                    ? "bg-green-100 text-green-800" 
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {option}
-                              </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No questions found matching your criteria
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {filteredQuestions.length > questionsPerPage && (
+                <div className="mt-6 flex justify-between items-center">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  onClick={closeQuestionModal}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveQuestions}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Save Questions'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Questions Modal */}
+      {isViewQuestionsModalOpen && selectedExam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">
+                    Questions for {selectedExam.name}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {filteredQuestions.length} question(s)
+                  </p>
+                </div>
+                <button
+                  onClick={closeViewQuestionsModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
+                  <p>{error}</p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {filteredQuestions.length > 0 ? (
+                  filteredQuestions.map((question) => (
+                    <div key={question.$id} className="p-4 border border-gray-200 rounded-lg bg-white">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium text-gray-800">
+                          {question.text || "Question"}
+                        </h4>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            question.difficulty === "easy" 
+                              ? "bg-green-100 text-green-800" 
+                              : question.difficulty === "medium" 
+                                ? "bg-yellow-100 text-yellow-800" 
+                                : "bg-red-100 text-red-800"
+                          }`}>
+                            {question.difficulty}
+                          </span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                            Marks: {questionMarks[question.$id] || 1}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-1 text-sm text-gray-600">
+                        <span className="mr-2">ID: {question.question_id}</span>
+                        <span>Type: {question.type}</span>
+                        {question.tags && question.tags.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {question.tags.map(tag => (
+                              <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
+                                {tag}
+                              </span>
                             ))}
                           </div>
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No questions found for this exam
+                      
+                      {question.options_text && (
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {question.options_text.map((option, index) => (
+                            <div 
+                              key={index} 
+                              className={`text-sm p-2 rounded ${
+                                question.correct_answer === index 
+                                  ? "bg-green-100 text-green-800" 
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {option}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No questions found for this exam
+                  </div>
+                )}
+              </div>
 
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={closeViewQuestionsModal}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={closeViewQuestionsModal}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Exam Details Modal */}
-        {selectedExamDetail && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">{selectedExamDetail.name}</h3>
-                    <p className="text-sm text-gray-600">{selectedExamDetail.exam_id}</p>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <span className={`px-3 py-1 rounded-full text-xs ${
-                      selectedExamDetail.status === "active" 
-                        ? "bg-green-100 text-green-800" 
-                        : selectedExamDetail.status === "completed" 
-                          ? "bg-blue-100 text-blue-800" 
-                          : "bg-gray-100 text-gray-800"
-                    }`}>
-                      {selectedExamDetail.status}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs ${
-                      getExamStatus(selectedExamDetail.exam_date) === "Expired" 
-                        ? "bg-red-100 text-red-800" 
-                        : "bg-green-100 text-green-800"
-                    }`}>
-                      {getExamStatus(selectedExamDetail.exam_date)}
-                    </span>
-                    <button
-                      onClick={closeExamDetails}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+      {/* Exam Details Modal */}
+      {selectedExamDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">{selectedExamDetail.name}</h3>
+                  <p className="text-sm text-gray-600">{selectedExamDetail.exam_id}</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Exam Date</h4>
-                    <p className="mt-1 text-gray-800">{formatDate(selectedExamDetail.exam_date)}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Duration</h4>
-                    <p className="mt-1 text-gray-800">{selectedExamDetail.duration} minutes</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <h4 className="text-sm font-medium text-gray-500">Description</h4>
-                    <p className="mt-1 text-gray-800 whitespace-pre-line">
-                      {selectedExamDetail.description || "No description provided"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-8 flex justify-end space-x-3">
-                  <button
-                    onClick={() => openModal(selectedExamDetail)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Edit Exam
-                  </button>
-                  <button
-                    onClick={() => deleteExam(selectedExamDetail.$id)}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                  >
-                    Delete Exam
-                  </button>
-                  <button
-                    onClick={() => openViewQuestionsModal(selectedExamDetail)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                  >
-                    View Questions
-                  </button>
+                <div className="flex items-center space-x-3">
+                  <span className={`px-3 py-1 rounded-full text-xs ${
+                    selectedExamDetail.status === "active" 
+                      ? "bg-green-100 text-green-800" 
+                      : selectedExamDetail.status === "completed" 
+                        ? "bg-blue-100 text-blue-800" 
+                        : "bg-gray-100 text-gray-800"
+                  }`}>
+                    {selectedExamDetail.status}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs ${
+                    getExamStatus(selectedExamDetail.exam_date) === "Expired" 
+                      ? "bg-red-100 text-red-800" 
+                      : "bg-green-100 text-green-800"
+                  }`}>
+                    {getExamStatus(selectedExamDetail.exam_date)}
+                  </span>
                   <button
                     onClick={closeExamDetails}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                    className="text-gray-500 hover:text-gray-700"
                   >
-                    Close
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Exam Date</h4>
+                  <p className="mt-1 text-gray-800">{formatDate(selectedExamDetail.exam_date)}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Duration</h4>
+                  <p className="mt-1 text-gray-800">{selectedExamDetail.duration} minutes</p>
+                </div>
+                <div className="md:col-span-2">
+                  <h4 className="text-sm font-medium text-gray-500">Description</h4>
+                  <p className="mt-1 text-gray-800 whitespace-pre-line">
+                    {selectedExamDetail.description || "No description provided"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end space-x-3">
+                <button
+                  onClick={() => openModal(selectedExamDetail)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Edit Exam
+                </button>
+                <button
+                  onClick={() => deleteExam(selectedExamDetail.$id)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                >
+                  Delete Exam
+                </button>
+                <button
+                  onClick={() => openViewQuestionsModal(selectedExamDetail)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  View Questions
+                </button>
+                <button
+                  onClick={closeExamDetails}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        )}
-      </div>
-    </AdminLayout>
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -39,23 +39,30 @@ const ResultsTestPage = () => {
         databases.listDocuments(databaseId, 'exams')
       ]);
       
-      // Normalize ID references in results
+      // Normalize ID references in results with proper null checks
       const fixedResults = resultsResponse.documents.map(result => {
-        // Handle cases where IDs might be stored as objects
-        const studentId = typeof result.student_id === 'object' ? 
-          result.student_id.student_id || result.student_id.$id : 
-          result.student_id;
-        
-        const examId = typeof result.exam_id === 'object' ? 
-          result.exam_id.exam_id || result.exam_id.$id : 
-          result.exam_id;
+        // Handle cases where student_id might be null or stored as object
+        let studentId = null;
+        if (result.student_id) {
+          studentId = typeof result.student_id === 'object' ? 
+            (result.student_id.student_id || result.student_id.$id) : 
+            result.student_id;
+        }
+
+        // Handle cases where exam_id might be null or stored as object
+        let examId = null;
+        if (result.exam_id) {
+          examId = typeof result.exam_id === 'object' ? 
+            (result.exam_id.exam_id || result.exam_id.$id) : 
+            result.exam_id;
+        }
         
         return {
           ...result,
           student_id: studentId,
           exam_id: examId
         };
-      });
+      }).filter(result => result.student_id && result.exam_id); // Filter out results with missing references
       
       setResults(fixedResults);
       setStudents(studentsResponse.documents);
@@ -131,7 +138,7 @@ const ResultsTestPage = () => {
   };
 
   const getStudentName = (studentId) => {
-    if (!students.length) return 'Loading...';
+    if (!students.length || !studentId) return 'Unknown Student';
     
     // Match by either student_id or $id
     const student = students.find(s => 
@@ -140,14 +147,13 @@ const ResultsTestPage = () => {
     
     if (!student) {
       console.warn(`Student not found for ID: ${studentId}`);
-      console.log('Available students:', students);
       return 'Unknown Student';
     }
     return `${student.name} (${student.email})`;
   };
 
   const getExamName = (examId) => {
-    if (!exams.length) return 'Loading...';
+    if (!exams.length || !examId) return 'Unknown Exam';
     
     // Match by either exam_id or $id
     const exam = exams.find(e => 
@@ -156,13 +162,13 @@ const ResultsTestPage = () => {
     
     if (!exam) {
       console.warn(`Exam not found for ID: ${examId}`);
-      console.log('Available exams:', exams);
       return 'Unknown Exam';
     }
     return exam.name;
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString();
   };
 
@@ -333,7 +339,7 @@ const ResultsTestPage = () => {
                       <span className="font-medium text-gray-800">Exam:</span> {getExamName(result.exam_id)}
                     </p>
                     <p>
-                      <span className="font-medium text-gray-800">Score:</span> {result.score}/{result.total_marks} ({result.percentage.toFixed(1)}%)
+                      <span className="font-medium text-gray-800">Score:</span> {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)
                     </p>
                     <p>
                       <span className="font-medium text-gray-800">Time Taken:</span> {result.time_taken} minutes
