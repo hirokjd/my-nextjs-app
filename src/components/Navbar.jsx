@@ -24,6 +24,30 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
     }
   }, [isAdmin, router]);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isDropdownOpen && !event.target.closest('.user-dropdown')) {
+        setIsDropdownOpen(false);
+      }
+      if (isNotifOpen && !event.target.closest('.notification-dropdown')) {
+        setIsNotifOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDropdownOpen, isNotifOpen]);
+
+  // Close on double click
+  const handleDoubleClick = (type) => {
+    if (type === 'notification') {
+      setIsNotifOpen(false);
+    } else if (type === 'profile') {
+      setIsDropdownOpen(false);
+    }
+  };
+
   // Fetch Notifications
   const fetchNotifications = async () => {
     setLoadingNotifications(true);
@@ -61,17 +85,16 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
 
   return (
     <div className="fixed top-0 right-0 left-0 h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between z-10">
-      {/* Sidebar Toggle Button */}
-      <button onClick={toggleSidebar} className="text-gray-600 p-2 focus:outline-none focus:ring-2 focus:ring-gray-300">
-        <Menu size={24} />
-      </button>
+      {/* Project Title */}
+      <div className="text-lg font-semibold text-gray-800">Online Exam Portal</div>
 
       {/* Notifications & User Info */}
       <div className="flex items-center gap-4 relative">
         {/* Notification Button */}
         <button
-          className="relative p-2 rounded-full hover:bg-gray-100"
+          className="relative p-2 rounded-full hover:bg-gray-100 notification-dropdown"
           onClick={handleNotificationClick}
+          onDoubleClick={() => handleDoubleClick('notification')}
         >
           <Bell size={20} className="text-gray-600" />
           {notifications.length > 0 && (
@@ -81,7 +104,7 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
 
         {/* Notification Dropdown */}
         {isNotifOpen && (
-          <div className="absolute right-10 top-12 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+          <div className="absolute right-10 top-12 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-20 notification-dropdown">
             <div className="p-3 border-b bg-gray-100 font-medium">Notifications</div>
             <div className="p-3 max-h-60 overflow-y-auto">
               {loadingNotifications ? (
@@ -102,9 +125,10 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
         )}
 
         {/* User Info with Dropdown */}
-        <div className="relative">
+        <div className="relative user-dropdown">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            onDoubleClick={() => handleDoubleClick('profile')}
             className="flex items-center gap-3 hover:bg-gray-100 rounded-lg p-2"
           >
             <div className="text-right">
@@ -118,7 +142,7 @@ const Navbar = ({ isAdmin = false, toggleSidebar }) => {
 
           {/* User Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 user-dropdown">
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 gap-2"

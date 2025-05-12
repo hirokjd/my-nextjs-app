@@ -1,68 +1,47 @@
-import { useState } from "react";
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
 import "../styles/globals.css";
 import { useRouter } from "next/router";
+import AdminLayout from "../components/AdminLayout";
+import StudentLayout from "../components/StudentLayout";
+import Navbar from "../components/Navbar";
+import { useState } from "react";
 
-// Admin Layout Component
-const AdminLayout = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar isAdmin={true} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-      <div className="flex-1">
-        <Navbar isAdmin={true} toggleSidebar={toggleSidebar} />
-        <div className="pt-16">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-// Student Layout Component
-const StudentLayout = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar isAdmin={false} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-      <div className="flex-1">
-        <Navbar isAdmin={false} toggleSidebar={toggleSidebar} />
-        <div className="pt-16">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-// The App component that handles global layout
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Determine if the page is an Admin or Student route
   const isAdminRoute = router.pathname.startsWith("/admin");
   const isStudentRoute = router.pathname.startsWith("/student");
 
-  // Admin Layout
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   if (isAdminRoute) {
     return (
-      <AdminLayout>
-        <Component {...pageProps} />
-      </AdminLayout>
+      <div className="flex flex-col min-h-screen">
+        <Navbar isAdmin={true} toggleSidebar={toggleSidebar} />
+        <div className="flex flex-1 pt-16"> {/* Added pt-16 to account for navbar */}
+          <AdminLayout sidebarOpen={sidebarOpen} toggleSidebar={toggleSidebar}>
+            <Component {...pageProps} />
+          </AdminLayout>
+        </div>
+      </div>
     );
   }
 
-  // Student Layout
   if (isStudentRoute) {
     return (
-      <StudentLayout>
-        <Component {...pageProps} />
-      </StudentLayout>
+      <div className="flex flex-col min-h-screen">
+        <Navbar isAdmin={false} toggleSidebar={toggleSidebar} />
+        <div className="flex flex-1 pt-16"> {/* Added pt-16 to account for navbar */}
+          <StudentLayout sidebarOpen={sidebarOpen} toggleSidebar={toggleSidebar}>
+            <Component {...pageProps} />
+          </StudentLayout>
+        </div>
+      </div>
     );
   }
 
-  // For other pages (like login, certificates, etc.), just render the component directly
   return <Component {...pageProps} />;
 }
 

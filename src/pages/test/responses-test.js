@@ -20,6 +20,7 @@ const ResponsesTestPage = () => {
 
   const databaseId = '67a5a946002e8a51f8fe';
   const collectionId = 'responses';
+  
 
   const generateResponseId = (examId, studentId, questionId) => {
     const examPart = examId.substring(0, 8);

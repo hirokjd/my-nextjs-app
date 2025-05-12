@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import AdminLayout from "../../components/AdminLayout";
 import Table from "../../components/Table";
 import Modal from "../../components/Modal";
 import { databases } from "../../utils/appwrite";
@@ -87,7 +86,7 @@ const NotificationsPage = () => {
   };
 
   return (
-    <AdminLayout>
+    <div className="p-6">
       <h2 className="text-2xl font-bold mb-4">📢 Manage Notifications</h2>
 
       <button className="bg-blue-500 text-white px-4 py-2 rounded mb-4" onClick={() => setModalOpen(true)}>
@@ -140,7 +139,7 @@ const NotificationsPage = () => {
           />
         </Modal>
       )}
-    </AdminLayout>
+    </div>
   );
 };
 
