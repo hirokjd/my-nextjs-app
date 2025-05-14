@@ -1,4 +1,3 @@
-// pages/results-test.js
 import { useState, useEffect } from 'react';
 import { databases } from '../../utils/appwrite';
 import { ID } from 'appwrite';
@@ -14,15 +13,18 @@ const ResultsTestPage = () => {
     exam_id: '',
     score: 0,
     total_marks: 100,
+    percentage: 0,
+    status: 'passed',
     time_taken: 60,
     attempted_at: new Date().toISOString().substring(0, 16),
+    completed_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
   });
 
   const databaseId = '67a5a946002e8a51f8fe';
   const collectionId = 'results';
 
   const generateResultId = (examId, studentId) => {
-    // Ensure the ID is max 36 characters
     const shortExamId = examId.substring(0, 10);
     const shortStudentId = studentId.substring(0, 10);
     const timestamp = Date.now().toString(36).substring(0, 6);
@@ -39,32 +41,7 @@ const ResultsTestPage = () => {
         databases.listDocuments(databaseId, 'exams')
       ]);
       
-      // Normalize ID references in results with proper null checks
-      const fixedResults = resultsResponse.documents.map(result => {
-        // Handle cases where student_id might be null or stored as object
-        let studentId = null;
-        if (result.student_id) {
-          studentId = typeof result.student_id === 'object' ? 
-            (result.student_id.student_id || result.student_id.$id) : 
-            result.student_id;
-        }
-
-        // Handle cases where exam_id might be null or stored as object
-        let examId = null;
-        if (result.exam_id) {
-          examId = typeof result.exam_id === 'object' ? 
-            (result.exam_id.exam_id || result.exam_id.$id) : 
-            result.exam_id;
-        }
-        
-        return {
-          ...result,
-          student_id: studentId,
-          exam_id: examId
-        };
-      }).filter(result => result.student_id && result.exam_id); // Filter out results with missing references
-      
-      setResults(fixedResults);
+      setResults(resultsResponse.documents);
       setStudents(studentsResponse.documents);
       setExams(examsResponse.documents);
       
@@ -81,7 +58,6 @@ const ResultsTestPage = () => {
     setLoading(true);
 
     try {
-      // Validate selections
       if (!students.some(s => s.$id === formData.student_id)) {
         throw new Error('Selected student does not exist');
       }
@@ -121,8 +97,12 @@ const ResultsTestPage = () => {
         exam_id: '',
         score: 0,
         total_marks: 100,
+        percentage: 0,
+        status: 'passed',
         time_taken: 60,
-        attempted_at: new Date().toISOString().substring(0, 16)
+        attempted_at: new Date().toISOString().substring(0, 16),
+        completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
       });
     } catch (err) {
       setError(err.message);
@@ -137,31 +117,57 @@ const ResultsTestPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const getStudentName = (studentId) => {
-    if (!students.length || !studentId) return 'Unknown Student';
+  const resolveStudentReference = (studentRef) => {
+    if (!studentRef) return null;
     
-    // Match by either student_id or $id
-    const student = students.find(s => 
-      s.student_id === studentId || s.$id === studentId
-    );
+    // Handle direct ID reference
+    if (typeof studentRef === 'string') return studentRef;
     
+    // Handle relationship object (either single or array)
+    if (Array.isArray(studentRef)) {
+      return studentRef[0]?.$id || studentRef[0];
+    } else if (typeof studentRef === 'object') {
+      return studentRef.$id;
+    }
+    
+    return null;
+  };
+
+  const resolveExamReference = (examRef) => {
+    if (!examRef) return null;
+    
+    // Handle direct ID reference
+    if (typeof examRef === 'string') return examRef;
+    
+    // Handle relationship object (either single or array)
+    if (Array.isArray(examRef)) {
+      return examRef[0]?.$id || examRef[0];
+    } else if (typeof examRef === 'object') {
+      return examRef.$id;
+    }
+    
+    return null;
+  };
+
+  const getStudentName = (studentRef) => {
+    const studentId = resolveStudentReference(studentRef);
+    if (!studentId || !students.length) return 'Unknown Student';
+    
+    const student = students.find(s => s.$id === studentId);
     if (!student) {
-      console.warn(`Student not found for ID: ${studentId}`);
+      console.warn('Student not found for ID:', studentId);
       return 'Unknown Student';
     }
     return `${student.name} (${student.email})`;
   };
 
-  const getExamName = (examId) => {
-    if (!exams.length || !examId) return 'Unknown Exam';
+  const getExamName = (examRef) => {
+    const examId = resolveExamReference(examRef);
+    if (!examId || !exams.length) return 'Unknown Exam';
     
-    // Match by either exam_id or $id
-    const exam = exams.find(e => 
-      e.exam_id === examId || e.$id === examId
-    );
-    
+    const exam = exams.find(e => e.$id === examId);
     if (!exam) {
-      console.warn(`Exam not found for ID: ${examId}`);
+      console.warn('Exam not found for ID:', examId);
       return 'Unknown Exam';
     }
     return exam.name;
@@ -296,10 +302,10 @@ const ResultsTestPage = () => {
           </form>
         </div>
         
-        {/* Results List */}
+        {/* Results List - Showing all attributes */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Results</h2>
+            <h2 className="text-xl font-semibold">Results (All Attributes)</h2>
             <button 
               onClick={fetchAllData}
               disabled={loading}
@@ -335,21 +341,20 @@ const ResultsTestPage = () => {
                   </div>
                   
                   <div className="mt-3 space-y-1 text-sm text-gray-600">
-                    <p>
-                      <span className="font-medium text-gray-800">Exam:</span> {getExamName(result.exam_id)}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Score:</span> {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Time Taken:</span> {result.time_taken} minutes
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Attempted:</span> {formatDate(result.attempted_at)}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Completed:</span> {formatDate(result.completed_at)}
-                    </p>
+                    <p><strong>Exam:</strong> {getExamName(result.exam_id)}</p>
+                    <p><strong>Result ID:</strong> {result.result_id}</p>
+                    <p><strong>Score:</strong> {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)</p>
+                    <p><strong>Status:</strong> {result.status}</p>
+                    <p><strong>Time Taken:</strong> {result.time_taken} minutes</p>
+                    <p><strong>Attempted At:</strong> {formatDate(result.attempted_at)}</p>
+                    <p><strong>Completed At:</strong> {formatDate(result.completed_at)}</p>
+                    <p><strong>Created At:</strong> {formatDate(result.created_at)}</p>
+                    <p><strong>Document ID:</strong> {result.$id}</p>
+                    <p><strong>Created At (Doc):</strong> {formatDate(result.$createdAt)}</p>
+                    <p><strong>Updated At:</strong> {formatDate(result.$updatedAt)}</p>
+                    <p><strong>Permissions:</strong> {result.$permissions?.join(', ') || 'None'}</p>
+                    <p><strong>Database ID:</strong> {result.$databaseId}</p>
+                    <p><strong>Collection ID:</strong> {result.$collectionId}</p>
                   </div>
                 </div>
               ))}

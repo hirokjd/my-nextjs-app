@@ -1,33 +1,11 @@
-//src/utils/auth.js
-import { account, databases } from "./appwrite";
+// src/utils/auth.js
+import { account, databases, ID } from "./appwrite";
 import { Query } from "appwrite";
 
 export const loginAdmin = async (email, password) => {
   try {
     const session = await account.createEmailPasswordSession(email, password);
-    console.log("Admin session:", session); // ✅ Log session data
     return session;
-  } catch (error) {
-    throw new Error(error.message);
-  }
-};
-
-export const getStudentByEmail = async (email) => {
-  try {
-    console.log("Database ID:", process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID);
-    console.log("Students Collection ID:", process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID);
-
-    const response = await databases.listDocuments(
-      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-      process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID,
-      [Query.equal("email", [email])] // ✅ Use Query helper
-    );
-
-    if (response.documents.length === 0) {
-      throw new Error("Student not found.");
-    }
-
-    return response.documents[0]; // Return student data
   } catch (error) {
     throw new Error(error.message);
   }
@@ -35,16 +13,46 @@ export const getStudentByEmail = async (email) => {
 
 export const loginStudent = async (email, password) => {
   try {
-    const student = await getStudentByEmail(email);
+    // First find the student in your database
+    const response = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
+      process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID,
+      [Query.equal("email", [email])]
+    );
 
-    // Direct password comparison (No encryption)
-    if (student.password !== password) {
-      throw new Error("Invalid student credentials.");
+    if (response.documents.length === 0) {
+      throw new Error("Student not found.");
     }
 
-    console.log("Student logged in successfully:", student); // ✅ Debugging log
-    return student;
+    const student = response.documents[0];
+
+    // Verify password (in production, use proper password hashing)
+    if (student.password !== password) {
+      throw new Error("Invalid credentials. Please check your email and password.");
+    }
+
+    // Return the student session data including the studentId
+    return {
+      studentId: student.$id,  // Make sure this matches your collection's ID field
+      email: student.email,
+      name: student.name,
+      // Add any other relevant student data
+    };
   } catch (error) {
     throw new Error(error.message);
+  }
+};
+
+export const getCurrentStudentSession = () => {
+  if (typeof window !== 'undefined') {
+    const session = localStorage.getItem('studentSession');
+    return session ? JSON.parse(session) : null;
+  }
+  return null;
+};
+
+export const logoutStudent = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('studentSession');
   }
 };

@@ -1,173 +1,311 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiBook, FiAward, FiUser, FiCalendar, FiClock, FiBarChart2 } from 'react-icons/fi';
-import { databases } from '../../utils/appwrite';
-import { Query } from 'appwrite';
+import { databases, Query } from '../../utils/appwrite';
+import { getCurrentStudentSession } from '../../utils/auth';
 import { useRouter } from 'next/router';
 
 const StudentDashboard = () => {
   const router = useRouter();
-  const [student, setStudent] = useState(null);
+  const [studentInfo, setStudentInfo] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [recentResults, setRecentResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
+  const studentsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID;
+  const enrollmentsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAM_ENROLLMENTS_COLLECTION_ID;
+  const examsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
+  const resultsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID;
+
+  const logQuery = (queryName, params, result, error = null) => {
+    console.groupCollapsed(`Query: ${queryName}`);
+    console.log('Params:', params);
+    if (error) {
+      console.error('Error:', error);
+    } else {
+      console.log('Result:', result);
+    }
+    console.groupEnd();
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const studentSession = localStorage.getItem('studentSession');
-        if (!studentSession) {
-          router.replace('/login');
+        // Check student session
+        const session = getCurrentStudentSession();
+        if (!session?.email) {
+          router.push('/login');
           return;
         }
 
-        const studentData = JSON.parse(studentSession);
-        setStudent(studentData);
-        await fetchStudentData(studentData.$id);
-      } catch (err) {
-        console.error('Initialization error:', err);
-        setError('Failed to initialize dashboard. Please try again.');
-        setLoading(false);
-      }
-    };
+        // Query 1: Get student by email
+        const studentQueryParams = {
+          databaseId,
+          collectionId: studentsCollectionId,
+          queries: [Query.equal('email', session.email)]
+        };
 
-    fetchData();
-  }, []);
+        let studentResponse;
+        try {
+          studentResponse = await databases.listDocuments(
+            studentQueryParams.databaseId,
+            studentQueryParams.collectionId,
+            studentQueryParams.queries
+          );
+          logQuery('Get Student by Email', studentQueryParams, {
+            total: studentResponse.total,
+            documents: studentResponse.documents.map(d => ({
+              $id: d.$id,
+              name: d.name,
+              email: d.email
+            }))
+          });
+        } catch (err) {
+          logQuery('Get Student by Email', studentQueryParams, null, err);
+          throw err;
+        }
 
-  const fetchStudentData = async (studentId) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // 1. Verify student exists
-      const studentDoc = await databases.getDocument(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID,
-        studentId
-      );
+        if (studentResponse.total === 0) {
+          throw new Error('Student record not found');
+        }
 
-      // 2. Fetch enrollments for this student using the correct relationship query
-      const enrollments = await databases.listDocuments(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_ENROLLMENTS_COLLECTION_ID,
-        [
-          Query.equal('student_id', studentId) // This works because student_id is stored as a string
-        ]
-      );
+        const student = studentResponse.documents[0];
+        setStudentInfo({
+          name: student.name,
+          email: student.email,
+          studentId: student.$id,
+        });
 
-      // 3. Get details for each enrolled exam
-      const enrolledExams = await Promise.all(
-        enrollments.documents.map(async (enrollment) => {
-          try {
-            return await databases.getDocument(
-              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-              process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
-              enrollment.exam_id
-            );
-          } catch (err) {
-            console.error(`Error fetching exam ${enrollment.exam_id}:`, err);
-            return null;
+        // Query 2: Get all enrollments and filter client-side
+        const enrollmentsQueryParams = {
+          databaseId,
+          collectionId: enrollmentsCollectionId,
+          queries: []
+        };
+
+        let enrollmentsResponse;
+        try {
+          enrollmentsResponse = await databases.listDocuments(
+            enrollmentsQueryParams.databaseId,
+            enrollmentsQueryParams.collectionId,
+            enrollmentsQueryParams.queries
+          );
+          logQuery('Get All Enrollments', enrollmentsQueryParams, {
+            total: enrollmentsResponse.total,
+            documents: enrollmentsResponse.documents
+          });
+        } catch (err) {
+          logQuery('Get All Enrollments', enrollmentsQueryParams, null, err);
+          throw err;
+        }
+
+        // Filter enrollments for current student
+        const filteredEnrollments = enrollmentsResponse.documents.filter(enrollment => {
+          const studentRef = enrollment.student_id;
+          
+          if (Array.isArray(studentRef)) {
+            return studentRef.some(s => s.$id === student.$id);
+          } else if (typeof studentRef === 'object' && studentRef !== null) {
+            return studentRef.$id === student.$id;
+          } else {
+            return studentRef === student.$id;
           }
-        })
-      );
+        });
 
-      // 4. Filter upcoming exams (future dates)
-      const now = new Date();
-      const studentUpcomingExams = enrolledExams
-        .filter(exam => exam !== null)
-        .filter(exam => new Date(exam.exam_date) > now)
-        .map(exam => ({
+        console.log('Client-side filtered enrollments:', {
+          originalCount: enrollmentsResponse.total,
+          filteredCount: filteredEnrollments.length,
+          enrollments: filteredEnrollments
+        });
+
+        // Query 3: Get all exams
+        const examsQueryParams = {
+          databaseId,
+          collectionId: examsCollectionId,
+          queries: []
+        };
+
+        let examsResponse;
+        try {
+          examsResponse = await databases.listDocuments(
+            examsQueryParams.databaseId,
+            examsQueryParams.collectionId,
+            examsQueryParams.queries
+          );
+          logQuery('Get All Exams', examsQueryParams, {
+            total: examsResponse.total,
+            documents: examsResponse.documents
+          });
+        } catch (err) {
+          logQuery('Get All Exams', examsQueryParams, null, err);
+          throw err;
+        }
+
+        // Get upcoming exams (future dates)
+        const now = new Date();
+        const studentUpcomingExams = examsResponse.documents.filter(exam => {
+          const examId = exam.$id;
+          const isEnrolled = filteredEnrollments.some(e => {
+            const examRef = e.exam_id;
+            if (Array.isArray(examRef)) {
+              return examRef.some(e => e.$id === examId);
+            } else if (typeof examRef === 'object' && examRef !== null) {
+              return examRef.$id === examId;
+            } else {
+              return examRef === examId;
+            }
+          });
+          return isEnrolled && new Date(exam.exam_date) > now;
+        }).map(exam => ({
           id: exam.$id,
           name: exam.name,
           date: exam.exam_date,
-          duration: `${exam.duration} minutes`,
+          duration: exam.duration,
           description: exam.description
         }));
 
-      setUpcomingExams(studentUpcomingExams);
+        setUpcomingExams(studentUpcomingExams);
 
-      // 5. Fetch results for this student
-      const results = await databases.listDocuments(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID,
-        [
-          Query.equal('student_id', studentId), // This works because student_id is stored as a string
-          Query.orderDesc('attempted_at'),
-          Query.limit(3)
-        ]
-      );
+        // Query 4: Get all results and filter client-side
+        const resultsQueryParams = {
+          databaseId,
+          collectionId: resultsCollectionId,
+          queries: []
+        };
 
-      // 6. Get exam details for each result
-      const resultsWithExamDetails = await Promise.all(
-        results.documents.map(async (result) => {
-          try {
-            const exam = await databases.getDocument(
-              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-              process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
-              result.exam_id
-            );
+        let resultsResponse;
+        try {
+          resultsResponse = await databases.listDocuments(
+            resultsQueryParams.databaseId,
+            resultsQueryParams.collectionId,
+            resultsQueryParams.queries
+          );
+          logQuery('Get All Results', resultsQueryParams, {
+            total: resultsResponse.total,
+            documents: resultsResponse.documents
+          });
+        } catch (err) {
+          logQuery('Get All Results', resultsQueryParams, null, err);
+          throw err;
+        }
+
+        // Filter results for current student and sort by date
+        const studentResults = resultsResponse.documents
+          .filter(result => {
+            const studentRef = result.student_id;
+            if (Array.isArray(studentRef)) {
+              return studentRef.some(s => s.$id === student.$id);
+            } else if (typeof studentRef === 'object' && studentRef !== null) {
+              return studentRef.$id === student.$id;
+            } else {
+              return studentRef === student.$id;
+            }
+          })
+          .sort((a, b) => new Date(b.attempted_at) - new Date(a.attempted_at))
+          .slice(0, 3); // Get only the 3 most recent
+
+        // Get exam details for each result
+        const resultsWithExamDetails = await Promise.all(
+          studentResults.map(async (result) => {
+            const examId = result.exam_id?.$id || result.exam_id;
+            const exam = examsResponse.documents.find(e => e.$id === examId);
             
             const percentage = Math.round((result.score / result.total_marks) * 100);
             return {
               id: result.$id,
-              examId: exam.$id,
-              exam: exam.name,
-              score: `${percentage}%`,
+              examId: exam?.$id || 'unknown',
+              exam: exam?.name || 'Unknown Exam',
+              score: percentage,
               date: result.attempted_at,
               totalMarks: result.total_marks,
               obtainedMarks: result.score,
-              status: result.status || 'completed'
+              status: result.status || (percentage >= 30 ? 'passed' : 'failed')
             };
-          } catch (err) {
-            console.error(`Error fetching exam details for result ${result.$id}:`, err);
-            return null;
-          }
-        })
-      );
+          })
+        );
 
-      setRecentResults(resultsWithExamDetails.filter(result => result !== null));
+        setRecentResults(resultsWithExamDetails);
+      } catch (err) {
+        console.error('Error in fetchDashboardData:', {
+          message: err.message,
+          stack: err.stack,
+          timestamp: new Date().toISOString()
+        });
+        setError(err.message || 'Failed to load dashboard data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchDashboardData();
+  }, [router]);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch (err) {
-      console.error('Data fetch error:', err);
-      setError('Failed to load dashboard data. Please try again later.');
+      console.error('Error formatting date:', dateString, err);
+      return 'Invalid Date';
+    }
+  };
+
+  const formatDuration = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
+
+  const refreshData = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const session = getCurrentStudentSession();
+      if (session?.email) {
+        await fetchDashboardData();
+      } else {
+        router.push('/login');
+      }
+    } catch (err) {
+      console.error('Refresh error:', err);
+      setError('Failed to refresh data. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const refreshData = async () => {
-    if (student?.$id) {
-      setError(null);
-      setLoading(true);
-      await fetchStudentData(student.$id);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3">Loading your dashboard...</span>
+        </div>
       </div>
     );
   }
 
-  if (!student) {
+  if (!studentInfo) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Student data not available. Please login again.</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+          <p>Student data not available. Please login again.</p>
+          <button
+            onClick={() => router.push('/login')}
+            className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+          >
+            Go to Login
+          </button>
+        </div>
       </div>
     );
   }
@@ -179,7 +317,7 @@ const StudentDashboard = () => {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              Welcome back, {student.name || 'Student'}!
+              Welcome back, {studentInfo.name}!
             </h1>
             <p className="opacity-90">
               {upcomingExams.length > 0 
@@ -270,7 +408,7 @@ const StudentDashboard = () => {
                     <h3 className="font-medium text-gray-800">{exam.name}</h3>
                     <p className="text-sm text-gray-500 mt-1">
                       <span className="flex items-center">
-                        <FiClock className="mr-1" /> {exam.duration}
+                        <FiClock className="mr-1" /> {formatDuration(exam.duration)}
                       </span>
                       {exam.description && (
                         <span className="block mt-1 text-gray-500 text-sm line-clamp-1">
@@ -317,40 +455,37 @@ const StudentDashboard = () => {
 
         {recentResults.length > 0 ? (
           <div className="space-y-4">
-            {recentResults.map((result) => {
-              const percentage = parseFloat(result.score);
-              return (
-                <div key={result.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium text-gray-800">{result.exam}</h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {formatDate(result.date)}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Score: {result.obtainedMarks}/{result.totalMarks}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                        percentage >= 80 
-                          ? 'bg-green-100 text-green-800' 
-                          : percentage >= 50 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-red-100 text-red-800'
-                      }`}>
-                        {result.score}
-                      </span>
-                      <Link href={`/student/results/${result.examId}`} passHref>
-                        <button className="mt-2 px-4 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 transition-colors">
-                          View Details
-                        </button>
-                      </Link>
-                    </div>
+            {recentResults.map((result) => (
+              <div key={result.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-medium text-gray-800">{result.exam}</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {formatDate(result.date)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Score: {result.obtainedMarks}/{result.totalMarks}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                      result.score >= 80 
+                        ? 'bg-green-100 text-green-800' 
+                        : result.score >= 50 
+                          ? 'bg-yellow-100 text-yellow-800' 
+                          : 'bg-red-100 text-red-800'
+                    }`}>
+                      {result.score}%
+                    </span>
+                    <Link href={`/student/results/${result.examId}`} passHref>
+                      <button className="mt-2 px-4 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 transition-colors">
+                        View Details
+                      </button>
+                    </Link>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         ) : (
           <div className="text-center py-8">
