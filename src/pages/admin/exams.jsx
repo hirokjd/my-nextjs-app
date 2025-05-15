@@ -18,6 +18,7 @@ const ExamsPage = () => {
   const [selectedExamDetail, setSelectedExamDetail] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [filteredQuestions, setFilteredQuestions] = useState([]);
+  const [mappedQuestions, setMappedQuestions] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [questionMarks, setQuestionMarks] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,7 +56,7 @@ const ExamsPage = () => {
     console.groupEnd();
   };
 
-  // Fetch exams with query logging
+  // Fetch exams
   const fetchExams = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -111,7 +112,7 @@ const ExamsPage = () => {
     }
   }, [databaseId, examsCollectionId]);
 
-  // Fetch questions with query logging
+  // Fetch questions
   const fetchQuestions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -161,21 +162,18 @@ const ExamsPage = () => {
     }
   }, [databaseId, questionsCollectionId]);
 
-  // Fetch exam questions with query logging
+  // Fetch exam questions
   const fetchExamQuestions = useCallback(async (examId) => {
     setIsLoading(true);
     setError(null);
     try {
-      // First, get all exam_question documents
       const examQuestionsResponse = await databases.listDocuments(
         databaseId, 
         examQuestionsCollectionId,
         [Query.orderAsc('order')]
       );
       
-      // Filter locally for this exam
       const filteredExamQuestions = examQuestionsResponse.documents.filter(doc => {
-        // Handle both array and direct reference formats
         const examRef = doc.exam_id;
         if (Array.isArray(examRef)) {
           return examRef.some(ref => ref.$id === examId || ref === examId);
@@ -185,7 +183,6 @@ const ExamsPage = () => {
         return examRef === examId;
       });
 
-      // Get all the questions referenced in these mappings
       const questionIds = filteredExamQuestions.map(eq => {
         const questionRef = eq.question_id;
         if (Array.isArray(questionRef)) {
@@ -197,19 +194,16 @@ const ExamsPage = () => {
       }).filter(id => id);
 
       if (questionIds.length > 0) {
-        // Fetch all questions at once
         const questionsResponse = await databases.listDocuments(
           databaseId,
           questionsCollectionId,
           [Query.limit(100)]
         );
         
-        // Filter questions locally to match our questionIds
         const filteredQuestions = questionsResponse.documents.filter(q => 
           questionIds.includes(q.$id) || questionIds.includes(q.question_id)
         );
 
-        // Create ordered questions with marks and order
         const orderedQuestions = filteredExamQuestions.map(eq => {
           const questionRef = eq.question_id;
           const questionId = Array.isArray(questionRef) ? questionRef[0]?.$id || questionRef[0] : 
@@ -218,7 +212,8 @@ const ExamsPage = () => {
           return {
             ...question,
             order: eq.order,
-            marks: eq.marks
+            marks: eq.marks,
+            examQuestionId: eq.$id
           };
         });
 
@@ -243,7 +238,7 @@ const ExamsPage = () => {
     }
   }, [databaseId, questionsCollectionId, examQuestionsCollectionId]);
 
-  // Filter questions based on search and filters
+  // Filter questions
   useEffect(() => {
     let results = questions;
     
@@ -296,13 +291,13 @@ const ExamsPage = () => {
     setSelectedExam(exam);
     setIsLoading(true);
     try {
-      const { questionIds } = await fetchExamQuestions(exam.$id);
+      const { questions: mapped, questionIds } = await fetchExamQuestions(exam.$id);
+      setMappedQuestions(mapped);
       setSelectedQuestions(questionIds || []);
       
-      // Initialize marks for selected questions
       const marks = {};
-      questionIds.forEach(id => {
-        marks[id] = 1; // Default mark is 1
+      mapped.forEach(q => {
+        marks[q.$id] = q.marks || 1;
       });
       setQuestionMarks(marks);
       
@@ -344,6 +339,7 @@ const ExamsPage = () => {
     setSearchTerm("");
     setDifficultyFilter("all");
     setTagFilter("all");
+    setMappedQuestions([]);
   };
 
   const closeViewQuestionsModal = () => {
@@ -366,6 +362,10 @@ const ExamsPage = () => {
         setQuestionMarks(newMarks);
         return prev.filter(id => id !== questionId);
       } else {
+        setQuestionMarks(prev => ({
+          ...prev,
+          [questionId]: prev[questionId] || 1
+        }));
         return [...prev, questionId];
       }
     });
@@ -510,6 +510,7 @@ const ExamsPage = () => {
       );
 
       closeQuestionModal();
+      await fetchExams();
     } catch (err) {
       console.error("Error saving exam questions:", {
         message: err.message,
@@ -850,114 +851,210 @@ const ExamsPage = () => {
                   <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
                     Filter by Tag
                   </label>
-                  <div className="relative">
-                    <select
-                      id="tags"
-                      value={tagFilter}
-                      onChange={(e) => setTagFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      disabled={isLoading}
-                    >
-                      <option value="all">All Tags</option>
-                      {availableTags.map(tag => (
-                        <option key={tag} value={tag}>{tag}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    id="tags"
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isLoading}
+                  >
+                    <option value="all">All Tags</option>
+                    {availableTags.map(tag => (
+                      <option key={tag} value={tag}>{tag}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               {/* Questions list */}
-              <div className="space-y-3">
-                {currentQuestions.length > 0 ? (
-                  currentQuestions.map((question) => (
-                    <div 
-                      key={question.$id} 
-                      className={`p-4 border rounded-lg transition-colors ${
-                        selectedQuestions.includes(question.$id) 
-                          ? "bg-blue-50 border-blue-200" 
-                          : "bg-white border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedQuestions.includes(question.$id)}
-                          onChange={() => handleQuestionSelect(question.$id)}
-                          className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          disabled={isLoading}
-                        />
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <h4 className="font-medium text-gray-800">
-                              {question.text || "Question"}
-                            </h4>
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              question.difficulty === "easy" 
-                                ? "bg-green-100 text-green-800" 
-                                : question.difficulty === "medium" 
-                                  ? "bg-yellow-100 text-yellow-800" 
-                                  : "bg-red-100 text-red-800"
-                            }`}>
-                              {question.difficulty}
-                            </span>
-                          </div>
-                          <div className="mt-1 text-sm text-gray-600">
-                            <span className="mr-2">ID: {question.question_id}</span>
-                            <span>Type: {question.type}</span>
-                            {question.tags && question.tags.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {question.tags.map(tag => (
-                                  <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                    {tag}
-                                  </span>
-                                ))}
+              <div className="space-y-6">
+                {/* Mapped Questions Section */}
+                {mappedQuestions.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-3">Mapped Questions</h4>
+                    <div className="space-y-3">
+                      {mappedQuestions.map((question, index) => (
+                        <div 
+                          key={question.$id} 
+                          className={`p-4 border rounded-lg transition-colors ${
+                            selectedQuestions.includes(question.$id) 
+                              ? "bg-blue-50 border-blue-200" 
+                              : "bg-white border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="w-8 text-center text-gray-600">{index + 1}.</div>
+                            <input
+                              type="checkbox"
+                              checked={selectedQuestions.includes(question.$id)}
+                              onChange={() => handleQuestionSelect(question.$id)}
+                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              disabled={isLoading}
+                            />
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-medium text-gray-800">
+                                  {question.text || "Question"}
+                                </h4>
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  question.difficulty === "easy" 
+                                    ? "bg-green-100 text-green-800" 
+                                    : question.difficulty === "medium" 
+                                      ? "bg-yellow-100 text-yellow-800" 
+                                      : "bg-red-100 text-red-800"
+                                }`}>
+                                  {question.difficulty}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                          
-                          {selectedQuestions.includes(question.$id) && (
-                            <div className="mt-3 flex items-center">
-                              <label htmlFor={`marks-${question.$id}`} className="mr-2 text-sm text-gray-700">
-                                Marks:
-                              </label>
-                              <input
-                                type="number"
-                                id={`marks-${question.$id}`}
-                                min="1"
-                                value={questionMarks[question.$id] || 1}
-                                onChange={(e) => handleMarksChange(question.$id, e.target.value)}
-                                className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
-                                disabled={isLoading}
-                              />
-                            </div>
-                          )}
-                          
-                          {question.options_text && (
-                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {question.options_text.map((option, index) => (
-                                <div 
-                                  key={index} 
-                                  className={`text-sm p-2 rounded ${
-                                    question.correct_answer === index 
-                                      ? "bg-green-100 text-green-800" 
-                                      : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {option}
+                              <div className="mt-1 text-sm text-gray-600">
+                                <span className="mr-2">ID: {question.question_id}</span>
+                                <span>Type: {question.type}</span>
+                                {question.tags && question.tags.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {question.tags.map(tag => (
+                                      <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {selectedQuestions.includes(question.$id) && (
+                                <div className="mt-3 flex items-center">
+                                  <label htmlFor={`marks-${question.$id}`} className="mr-2 text-sm text-gray-700">
+                                    Marks:
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`marks-${question.$id}`}
+                                    min="1"
+                                    value={questionMarks[question.$id] || 1}
+                                    onChange={(e) => handleMarksChange(question.$id, e.target.value)}
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                                    disabled={isLoading}
+                                  />
                                 </div>
-                              ))}
+                              )}
+                              {question.options_text && (
+                                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {question.options_text.map((option, index) => (
+                                    <div 
+                                      key={index} 
+                                      className={`text-sm p-2 rounded ${
+                                        question.correct_answer === index 
+                                          ? "bg-green-100 text-green-800" 
+                                          : "bg-gray-100 text-gray-800"
+                                      }`}
+                                    >
+                                      {option}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No questions found matching your criteria
                   </div>
                 )}
+
+                {/* All Questions Section */}
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">All Questions</h4>
+                  <div className="space-y-3">
+                    {currentQuestions.length > 0 ? (
+                      currentQuestions.map((question, index) => (
+                        <div 
+                          key={question.$id} 
+                          className={`p-4 border rounded-lg transition-colors ${
+                            selectedQuestions.includes(question.$id) 
+                              ? "bg-blue-50 border-blue-200" 
+                              : "bg-white border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="w-8 text-center text-gray-600">
+                              {(mappedQuestions.length + index + 1) + ((currentPage - 1) * questionsPerPage)}.
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={selectedQuestions.includes(question.$id)}
+                              onChange={() => handleQuestionSelect(question.$id)}
+                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              disabled={isLoading}
+                            />
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-medium text-gray-800">
+                                  {question.text || "Question"}
+                                </h4>
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  question.difficulty === "easy" 
+                                    ? "bg-green-100 text-green-800" 
+                                    : question.difficulty === "medium" 
+                                      ? "bg-yellow-100 text-yellow-800" 
+                                      : "bg-red-100 text-red-800"
+                                }`}>
+                                  {question.difficulty}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-sm text-gray-600">
+                                <span className="mr-2">ID: {question.question_id}</span>
+                                <span>Type: {question.type}</span>
+                                {question.tags && question.tags.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {question.tags.map(tag => (
+                                      <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {selectedQuestions.includes(question.$id) && (
+                                <div className="mt-3 flex items-center">
+                                  <label htmlFor={`marks-${question.$id}`} className="mr-2 text-sm text-gray-700">
+                                    Marks:
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`marks-${question.$id}`}
+                                    min="1"
+                                    value={questionMarks[question.$id] || 1}
+                                    onChange={(e) => handleMarksChange(question.$id, e.target.value)}
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                                    disabled={isLoading}
+                                  />
+                                </div>
+                              )}
+                              {question.options_text && (
+                                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {question.options_text.map((option, index) => (
+                                    <div 
+                                      key={index} 
+                                      className={`text-sm p-2 rounded ${
+                                        question.correct_answer === index 
+                                          ? "bg-green-100 text-green-800" 
+                                          : "bg-gray-100 text-gray-800"
+                                      }`}
+                                    >
+                                      {option}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        No questions found matching your criteria
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Pagination */}
@@ -995,7 +1092,7 @@ const ExamsPage = () => {
                 <button
                   onClick={handleSaveQuestions}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  disabled={isLoading || (selectedQuestions?.length || 0) === 0}
+                  disabled={isLoading}
                 >
                   {isLoading ? 'Saving...' : 'Save Questions'}
                 </button>
