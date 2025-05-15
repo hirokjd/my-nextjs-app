@@ -121,6 +121,7 @@ const ExamsTestPage = () => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString();
   };
 
@@ -257,7 +258,10 @@ const ExamsTestPage = () => {
               {exams.map(exam => (
                 <div key={exam.$id} className="border p-4 rounded hover:bg-gray-50">
                   <div className="flex justify-between items-start">
-                    <h3 className="font-medium">{exam.name}</h3>
+                    <div>
+                      <h3 className="font-medium">{exam.name}</h3>
+                      <p className="text-sm text-gray-600">ID: {exam.exam_id}</p>
+                    </div>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEdit(exam)}
@@ -273,20 +277,57 @@ const ExamsTestPage = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">ID: {exam.exam_id}</p>
-                    <p className="text-sm">Date: {formatDate(exam.exam_date)}</p>
-                    <p className="text-sm">Duration: {exam.duration} minutes</p>
-                    <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs ${
-                      exam.status === 'active' ? 'bg-green-100 text-green-800' :
-                      exam.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {exam.status}
-                    </span>
+                  
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="font-semibold">Document ID:</span> {exam.$id}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Created:</span> {formatDate(exam.$createdAt)}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Updated:</span> {formatDate(exam.$updatedAt)}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Permissions:</span> {exam.$permissions?.join(', ') || 'N/A'}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Database:</span> {exam.$databaseId}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Collection:</span> {exam.$collectionId}
+                    </div>
                   </div>
+                  
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-sm">
+                        <span className="font-semibold">Date:</span> {formatDate(exam.exam_date)}
+                      </p>
+                      <p className="text-sm">
+                        <span className="font-semibold">Duration:</span> {exam.duration} minutes
+                      </p>
+                    </div>
+                    <div>
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                        exam.status === 'active' ? 'bg-green-100 text-green-800' :
+                        exam.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        Status: {exam.status}
+                      </span>
+                      <p className="text-sm mt-1">
+                        <span className="font-semibold">Created by:</span> {exam.created_by}
+                      </p>
+                    </div>
+                  </div>
+                  
                   {exam.description && (
-                    <p className="mt-2 text-sm text-gray-700">{exam.description}</p>
+                    <div className="mt-2 p-2 bg-gray-50 rounded">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">Description:</span> {exam.description}
+                      </p>
+                    </div>
                   )}
                 </div>
               ))}

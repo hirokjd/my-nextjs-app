@@ -67,6 +67,12 @@ const ExamQuestionsTestPage = () => {
     return question?.difficulty ? `(${question.difficulty})` : '';
   };
 
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -274,13 +280,33 @@ const ExamQuestionsTestPage = () => {
                       <p className="text-sm text-gray-600">
                         {getQuestionText(eq.question_id)} {getQuestionDifficulty(eq.question_id)}
                       </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="font-semibold">ID:</span> {eq.$id}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Created:</span> {formatDate(eq.$createdAt)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Updated:</span> {formatDate(eq.$updatedAt)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Permissions:</span> {eq.$permissions?.join(', ') || 'N/A'}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col items-end space-y-1">
                       <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
                         Order: {eq.order}
                       </span>
                       <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
                         Marks: {eq.marks}
+                      </span>
+                      <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                        Database: {eq.$databaseId}
+                      </span>
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                        Collection: {eq.$collectionId}
                       </span>
                     </div>
                   </div>
