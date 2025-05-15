@@ -224,11 +224,12 @@ const ExamsPage = () => {
 
         return {
           questions: orderedQuestions,
-          examQuestions: filteredExamQuestions
+          examQuestions: filteredExamQuestions,
+          questionIds: filteredExamQuestions.map(q => q.question_id)
         };
       }
 
-      return { questions: [], examQuestions: [] };
+      return { questions: [], examQuestions: [], questionIds: [] };
     } catch (err) {
       console.error('Error fetching exam questions:', {
         message: err.message,
@@ -236,7 +237,7 @@ const ExamsPage = () => {
         timestamp: new Date().toISOString()
       });
       setError(err.message || "Failed to load exam questions");
-      return { questions: [], examQuestions: [] };
+      return { questions: [], examQuestions: [], questionIds: [] };
     } finally {
       setIsLoading(false);
     }
@@ -296,7 +297,15 @@ const ExamsPage = () => {
     setIsLoading(true);
     try {
       const { questionIds } = await fetchExamQuestions(exam.$id);
-      setSelectedQuestions(questionIds);
+      setSelectedQuestions(questionIds || []);
+      
+      // Initialize marks for selected questions
+      const marks = {};
+      questionIds.forEach(id => {
+        marks[id] = 1; // Default mark is 1
+      });
+      setQuestionMarks(marks);
+      
       setIsQuestionModalOpen(true);
     } catch (err) {
       setError("Failed to load exam questions");
@@ -452,7 +461,7 @@ const ExamsPage = () => {
       const existingQuestions = await fetchExamQuestions(selectedExam.$id);
       
       // Delete removed questions
-      const questionsToDelete = existingQuestions.documents.filter(
+      const questionsToDelete = existingQuestions.examQuestions.filter(
         q => !selectedQuestions.includes(q.question_id)
       );
       
@@ -465,7 +474,7 @@ const ExamsPage = () => {
       // Add/update questions
       await Promise.all(
         selectedQuestions.map(async (questionId, index) => {
-          const existing = existingQuestions.documents.find(
+          const existing = existingQuestions.examQuestions.find(
             q => q.question_id === questionId
           );
           
@@ -474,7 +483,10 @@ const ExamsPage = () => {
               databaseId,
               examQuestionsCollectionId,
               existing.$id,
-              { order: index + 1, marks: questionMarks[questionId] || 1 }
+              { 
+                order: index + 1, 
+                marks: questionMarks[questionId] || 1 
+              }
             );
           } else {
             await databases.createDocument(
@@ -521,7 +533,7 @@ const ExamsPage = () => {
 
       const examQuestions = await fetchExamQuestions(examId);
       await Promise.all(
-        examQuestions.documents.map(q => 
+        examQuestions.examQuestions.map(q => 
           databases.deleteDocument(databaseId, examQuestionsCollectionId, q.$id)
         )
       );
@@ -780,7 +792,7 @@ const ExamsPage = () => {
                     Manage Questions for {selectedExam.name}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {selectedQuestions.length} question(s) selected
+                    {selectedQuestions?.length || 0} question(s) selected
                   </p>
                 </div>
                 <button
@@ -983,7 +995,7 @@ const ExamsPage = () => {
                 <button
                   onClick={handleSaveQuestions}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  disabled={isLoading || selectedQuestions.length === 0}
+                  disabled={isLoading || (selectedQuestions?.length || 0) === 0}
                 >
                   {isLoading ? 'Saving...' : 'Save Questions'}
                 </button>
