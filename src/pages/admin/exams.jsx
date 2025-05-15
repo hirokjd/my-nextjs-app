@@ -166,118 +166,55 @@ const ExamsPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const queryParams = {
-        databaseId,
-        collectionId: examQuestionsCollectionId,
-        queries: [
-          Query.equal("exam_id", examId),
-          Query.orderAsc("order")
-        ]
-      };
-
-      let response;
-      try {
-        response = await databases.listDocuments(
-          queryParams.databaseId,
-          queryParams.collectionId,
-          queryParams.queries
-        );
-        logQuery('Fetch Exam Questions', queryParams, {
-          total: response.total,
-          documents: response.documents
-        });
-      } catch (err) {
-        logQuery('Fetch Exam Questions', queryParams, null, err);
-        throw err;
-      }
-
-      const marksMap = {};
-      const questionIds = [];
-      response.documents.forEach(q => {
-        marksMap[q.question_id] = q.marks;
-        questionIds.push(q.question_id);
-      });
-
-      setQuestionMarks(marksMap);
-      return { documents: response.documents, questionIds };
-    } catch (err) {
-      console.error('Error fetching exam questions:', {
-        message: err.message,
-        stack: err.stack,
-        timestamp: new Date().toISOString()
-      });
-      setError("Failed to load exam questions. Please try again.");
-      return { documents: [], questionIds: [] };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [databaseId, examQuestionsCollectionId]);
-
-  // Fetch questions for exam with query logging
-  const fetchQuestionsForExam = useCallback(async (examId) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // First get all exam-question relationships
-      const examQuestionsQueryParams = {
-        databaseId,
-        collectionId: examQuestionsCollectionId,
-        queries: [
-          Query.equal("exam_id", examId),
-          Query.orderAsc("order")
-        ]
-      };
-
-      let examQuestionsResponse;
-      try {
-        examQuestionsResponse = await databases.listDocuments(
-          examQuestionsQueryParams.databaseId,
-          examQuestionsQueryParams.collectionId,
-          examQuestionsQueryParams.queries
-        );
-        logQuery('Fetch Exam-Question Relationships', examQuestionsQueryParams, {
-          total: examQuestionsResponse.total,
-          documents: examQuestionsResponse.documents
-        });
-      } catch (err) {
-        logQuery('Fetch Exam-Question Relationships', examQuestionsQueryParams, null, err);
-        throw err;
-      }
-
-      if (examQuestionsResponse.documents.length > 0) {
-        // Then get the full question details
-        const questionIds = examQuestionsResponse.documents.map(q => q.question_id);
-        const questionsQueryParams = {
-          databaseId,
-          collectionId: questionsCollectionId,
-          queries: [Query.equal("$id", questionIds)]
-        };
-
-        let questionsResponse;
-        try {
-          questionsResponse = await databases.listDocuments(
-            questionsQueryParams.databaseId,
-            questionsQueryParams.collectionId,
-            questionsQueryParams.queries
-          );
-          logQuery('Fetch Questions for Exam', questionsQueryParams, {
-            total: questionsResponse.total,
-            documents: questionsResponse.documents
-          });
-        } catch (err) {
-          logQuery('Fetch Questions for Exam', questionsQueryParams, null, err);
-          throw err;
+      // First, get all exam_question documents
+      const examQuestionsResponse = await databases.listDocuments(
+        databaseId, 
+        examQuestionsCollectionId,
+        [Query.orderAsc('order')]
+      );
+      
+      // Filter locally for this exam
+      const filteredExamQuestions = examQuestionsResponse.documents.filter(doc => {
+        // Handle both array and direct reference formats
+        const examRef = doc.exam_id;
+        if (Array.isArray(examRef)) {
+          return examRef.some(ref => ref.$id === examId || ref === examId);
+        } else if (typeof examRef === 'object') {
+          return examRef.$id === examId;
         }
+        return examRef === examId;
+      });
 
-        // Create a map of question marks
-        const marksMap = {};
-        examQuestionsResponse.documents.forEach(q => {
-          marksMap[q.question_id] = q.marks;
-        });
+      // Get all the questions referenced in these mappings
+      const questionIds = filteredExamQuestions.map(eq => {
+        const questionRef = eq.question_id;
+        if (Array.isArray(questionRef)) {
+          return questionRef[0]?.$id || questionRef[0];
+        } else if (typeof questionRef === 'object') {
+          return questionRef.$id;
+        }
+        return questionRef;
+      }).filter(id => id);
 
-        // Return questions in the correct order
-        const orderedQuestions = examQuestionsResponse.documents.map(eq => {
-          const question = questionsResponse.documents.find(q => q.$id === eq.question_id);
+      if (questionIds.length > 0) {
+        // Fetch all questions at once
+        const questionsResponse = await databases.listDocuments(
+          databaseId,
+          questionsCollectionId,
+          [Query.limit(100)]
+        );
+        
+        // Filter questions locally to match our questionIds
+        const filteredQuestions = questionsResponse.documents.filter(q => 
+          questionIds.includes(q.$id) || questionIds.includes(q.question_id)
+        );
+
+        // Create ordered questions with marks and order
+        const orderedQuestions = filteredExamQuestions.map(eq => {
+          const questionRef = eq.question_id;
+          const questionId = Array.isArray(questionRef) ? questionRef[0]?.$id || questionRef[0] : 
+                           (typeof questionRef === 'object' ? questionRef.$id : questionRef);
+          const question = filteredQuestions.find(q => q.$id === questionId || q.question_id === questionId);
           return {
             ...question,
             order: eq.order,
@@ -287,20 +224,19 @@ const ExamsPage = () => {
 
         return {
           questions: orderedQuestions,
-          marks: marksMap,
-          examQuestions: examQuestionsResponse.documents
+          examQuestions: filteredExamQuestions
         };
       }
 
-      return { questions: [], marks: {}, examQuestions: [] };
+      return { questions: [], examQuestions: [] };
     } catch (err) {
-      console.error('Error fetching questions for exam:', {
+      console.error('Error fetching exam questions:', {
         message: err.message,
         stack: err.stack,
         timestamp: new Date().toISOString()
       });
-      setError("Failed to load exam questions. Please try again.");
-      return { questions: [], marks: {}, examQuestions: [] };
+      setError(err.message || "Failed to load exam questions");
+      return { questions: [], examQuestions: [] };
     } finally {
       setIsLoading(false);
     }
@@ -373,7 +309,8 @@ const ExamsPage = () => {
     setSelectedExam(exam);
     setIsLoading(true);
     try {
-      await fetchQuestionsForExam(exam.$id);
+      const { questions: examQuestions } = await fetchExamQuestions(exam.$id);
+      setQuestions(examQuestions);
       setIsViewQuestionsModalOpen(true);
     } catch (err) {
       setError("Failed to load exam questions");
@@ -403,6 +340,7 @@ const ExamsPage = () => {
   const closeViewQuestionsModal = () => {
     setIsViewQuestionsModalOpen(false);
     setSelectedExam(null);
+    setQuestions([]);
   };
 
   // Input handlers
@@ -1066,7 +1004,7 @@ const ExamsPage = () => {
                     Questions for {selectedExam.name}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {filteredQuestions.length} question(s)
+                    {questions.length} question(s)
                   </p>
                 </div>
                 <button
@@ -1087,13 +1025,16 @@ const ExamsPage = () => {
               )}
 
               <div className="space-y-4">
-                {filteredQuestions.length > 0 ? (
-                  filteredQuestions.map((question) => (
+                {questions.length > 0 ? (
+                  questions.map((question) => (
                     <div key={question.$id} className="p-4 border border-gray-200 rounded-lg bg-white">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-medium text-gray-800">
-                          {question.text || "Question"}
-                        </h4>
+                        <div>
+                          <h4 className="font-medium text-gray-800">
+                            Question {question.order || 'N/A'} (Marks: {question.marks || 'N/A'})
+                          </h4>
+                          <p className="text-gray-700 mt-1">{question.text}</p>
+                        </div>
                         <div className="flex items-center space-x-2">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             question.difficulty === "easy" 
@@ -1103,12 +1044,6 @@ const ExamsPage = () => {
                                 : "bg-red-100 text-red-800"
                           }`}>
                             {question.difficulty}
-                          </span>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                            Marks: {questionMarks[question.$id] || 1}
-                          </span>
-                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-                            Order: {question.order || "N/A"}
                           </span>
                         </div>
                       </div>

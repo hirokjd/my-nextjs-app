@@ -19,6 +19,20 @@ const ExamQuestionsTestPage = () => {
   const databaseId = '67a5a946002e8a51f8fe';
   const collectionId = 'exam_questions';
 
+  // Collection attributes
+  const collectionAttributes = [
+    { name: 'exam_id', type: 'relationship', description: 'Reference to the exam document' },
+    { name: 'question_id', type: 'relationship', description: 'Reference to the question document' },
+    { name: 'order', type: 'integer', description: 'Order of the question in the exam' },
+    { name: 'marks', type: 'integer', description: 'Marks allocated for this question' },
+    { name: '$id', type: 'string', description: 'Document ID' },
+    { name: '$createdAt', type: 'datetime', description: 'Creation timestamp' },
+    { name: '$updatedAt', type: 'datetime', description: 'Last update timestamp' },
+    { name: '$permissions', type: 'array', description: 'Permission settings for the document' },
+    { name: '$databaseId', type: 'string', description: 'Database ID' },
+    { name: '$collectionId', type: 'string', description: 'Collection ID' }
+  ];
+
   const fetchAllData = async () => {
     setLoading(true);
     try {
@@ -71,6 +85,17 @@ const ExamQuestionsTestPage = () => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
     return date.toLocaleString();
+  };
+
+  const formatRelationship = (relationship) => {
+    if (!relationship) return 'N/A';
+    if (Array.isArray(relationship)) {
+      return relationship.map(r => r.$id || r).join(', ');
+    }
+    if (typeof relationship === 'object') {
+      return relationship.$id || 'Object';
+    }
+    return relationship;
   };
 
   const handleChange = (e) => {
@@ -150,6 +175,31 @@ const ExamQuestionsTestPage = () => {
           <p>{error}</p>
         </div>
       )}
+
+      {/* Collection Attributes Section */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 className="text-xl font-semibold mb-4">Exam Questions Collection Attributes</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attribute</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {collectionAttributes.map((attr, index) => (
+                <tr key={index}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{attr.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{attr.type}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{attr.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Form Section */}
@@ -281,6 +331,12 @@ const ExamQuestionsTestPage = () => {
                         {getQuestionText(eq.question_id)} {getQuestionDifficulty(eq.question_id)}
                       </p>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="font-semibold">Exam ID:</span> {formatRelationship(eq.exam_id)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Question ID:</span> {formatRelationship(eq.question_id)}
+                        </div>
                         <div>
                           <span className="font-semibold">ID:</span> {eq.$id}
                         </div>
