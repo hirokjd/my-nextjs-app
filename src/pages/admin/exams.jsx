@@ -136,15 +136,26 @@ const ExamsPage = () => {
         });
       } catch (err) {
         logQuery('Fetch Questions', queryParams, null, err);
-        throw err;
+        throw new Error(`Failed to fetch questions: ${err.message}`);
       }
 
-      setQuestions(response.documents);
-      setFilteredQuestions(response.documents);
+      if (response.total === 0) {
+        console.warn('No questions found in the collection');
+        setError('No questions found in the collection. Please add questions to the database.');
+      }
+
+      const sortedQuestions = response.documents.sort((a, b) => 
+        new Date(b.$createdAt) - new Date(a.$createdAt)
+      );
+
+      console.log('Fetched questions:', sortedQuestions.length, sortedQuestions);
+
+      setQuestions(sortedQuestions);
+      setFilteredQuestions(sortedQuestions);
       
       // Extract unique tags
       const tags = new Set();
-      response.documents.forEach(question => {
+      sortedQuestions.forEach(question => {
         if (question.tags && Array.isArray(question.tags)) {
           question.tags.forEach(tag => tags.add(tag));
         }
@@ -156,7 +167,7 @@ const ExamsPage = () => {
         stack: err.stack,
         timestamp: new Date().toISOString()
       });
-      setError("Failed to load questions. Please try again.");
+      setError(err.message || "Failed to load questions. Please check your database connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -240,12 +251,14 @@ const ExamsPage = () => {
 
   // Filter questions
   useEffect(() => {
-    let results = questions;
+    let results = [...questions];
     
+    console.log('Applying filters:', { searchTerm, difficultyFilter, tagFilter, totalQuestions: questions.length });
+
     if (searchTerm) {
       results = results.filter(question => 
-        question.text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        question.question_id?.toLowerCase().includes(searchTerm.toLowerCase())
+        (question.text?.toLowerCase()?.includes(searchTerm.toLowerCase()) ||
+        question.question_id?.toLowerCase()?.includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -257,18 +270,26 @@ const ExamsPage = () => {
     
     if (tagFilter !== "all") {
       results = results.filter(question => 
-        question.tags && question.tags.includes(tagFilter)
+        question.tags && Array.isArray(question.tags) && question.tags.includes(tagFilter)
       );
     }
     
+    console.log('Filtered questions:', results.length, results);
+
     setFilteredQuestions(results);
     setCurrentPage(1);
   }, [searchTerm, difficultyFilter, tagFilter, questions]);
 
   // Initial data fetch
   useEffect(() => {
-    fetchExams();
-    fetchQuestions();
+    const fetchData = async () => {
+      try {
+        await Promise.all([fetchExams(), fetchQuestions()]);
+      } catch (err) {
+        setError("Failed to load initial data. Please try again.");
+      }
+    };
+    fetchData();
   }, [fetchExams, fetchQuestions]);
 
   // Modal handlers
@@ -340,6 +361,7 @@ const ExamsPage = () => {
     setDifficultyFilter("all");
     setTagFilter("all");
     setMappedQuestions([]);
+    setCurrentPage(1);
   };
 
   const closeViewQuestionsModal = () => {
@@ -449,62 +471,109 @@ const ExamsPage = () => {
 
   // Save exam questions
   const handleSaveQuestions = async () => {
-    if (!selectedExam) return;
+    if (!selectedExam) {
+      setError("No exam selected");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const user = await account.get();
-      if (!user) throw new Error("Authentication required");
+      // Verify user authentication
+      let user;
+      try {
+        user = await account.get();
+        if (!user) throw new Error("User not authenticated");
+      } catch (authError) {
+        throw new Error("Authentication failed. Please log in again.");
+      }
 
       const existingQuestions = await fetchExamQuestions(selectedExam.$id);
       
       // Delete removed questions
       const questionsToDelete = existingQuestions.examQuestions.filter(
-        q => !selectedQuestions.includes(q.question_id)
+        q => !selectedQuestions.includes(Array.isArray(q.question_id) ? q.question_id[0] : q.question_id)
       );
       
       await Promise.all(
-        questionsToDelete.map(q => 
-          databases.deleteDocument(databaseId, examQuestionsCollectionId, q.$id)
-        )
+        questionsToDelete.map(async (q) => {
+          try {
+            await databases.deleteDocument(databaseId, examQuestionsCollectionId, q.$id);
+          } catch (deleteError) {
+            console.error(`Failed to delete exam question ${q.$id}:`, deleteError);
+            throw new Error(`Failed to delete question ${q.$id}: ${deleteError.message}`);
+          }
+        })
       );
 
       // Add/update questions
       await Promise.all(
         selectedQuestions.map(async (questionId, index) => {
+          // Validate questionId exists in questions collection
+          const questionExists = questions.find(q => q.$id === questionId);
+          if (!questionExists) {
+            throw new Error(`Question with ID ${questionId} does not exist`);
+          }
+
           const existing = existingQuestions.examQuestions.find(
-            q => q.question_id === questionId
+            q => {
+              const qId = Array.isArray(q.question_id) ? q.question_id[0] : q.question_id;
+              return qId === questionId;
+            }
           );
           
+          const marks = questionMarks[questionId] || 1;
+          if (isNaN(marks) || marks < 1) {
+            throw new Error(`Invalid marks for question ${questionId}`);
+          }
+
+          const documentData = {
+            exam_id: [selectedExam.$id], // Wrap in array for relationship attribute
+            question_id: [questionId],   // Wrap in array for relationship attribute
+            order: index + 1,
+            marks: marks
+          };
+
+          console.log('Creating/Updating exam question:', {
+            questionId,
+            documentData,
+            existing: !!existing
+          });
+
           if (existing) {
-            await databases.updateDocument(
-              databaseId,
-              examQuestionsCollectionId,
-              existing.$id,
-              { 
-                order: index + 1, 
-                marks: questionMarks[questionId] || 1 
-              }
-            );
+            try {
+              await databases.updateDocument(
+                databaseId,
+                examQuestionsCollectionId,
+                existing.$id,
+                { 
+                  order: index + 1, 
+                  marks: marks 
+                }
+              );
+            } catch (updateError) {
+              console.error(`Failed to update exam question ${existing.$id}:`, updateError);
+              throw new Error(`Failed to update question ${questionId}: ${updateError.message}`);
+            }
           } else {
-            await databases.createDocument(
-              databaseId,
-              examQuestionsCollectionId,
-              ID.unique(),
-              {
-                exam_id: selectedExam.$id,
-                question_id: questionId,
-                order: index + 1,
-                marks: questionMarks[questionId] || 1
-              },
-              [
-                Permission.read(Role.any()),
-                Permission.update(Role.user(user.$id)),
-                Permission.delete(Role.user(user.$id))
-              ]
-            );
+            try {
+              await databases.createDocument(
+                databaseId,
+                examQuestionsCollectionId,
+                ID.unique(),
+                documentData,
+                [
+                  Permission.read(Role.any()),
+                  Permission.update(Role.user(user.$id)),
+                  Permission.delete(Role.user(user.$id)),
+                  Permission.write(Role.user(user.$id))
+                ]
+              );
+            } catch (createError) {
+              console.error(`Failed to create exam question for ${questionId}:`, createError);
+              throw new Error(`Failed to create question ${questionId}: ${createError.message}`);
+            }
           }
         })
       );
@@ -517,7 +586,7 @@ const ExamsPage = () => {
         stack: err.stack,
         timestamp: new Date().toISOString()
       });
-      setError(err.message || "Failed to save exam questions");
+      setError(err.message || "Failed to save exam questions. Please check your permissions and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -996,12 +1065,12 @@ const ExamsPage = () => {
                                       ? "bg-yellow-100 text-yellow-800" 
                                       : "bg-red-100 text-red-800"
                                 }`}>
-                                  {question.difficulty}
+                                  {question.difficulty || "N/A"}
                                 </span>
                               </div>
                               <div className="mt-1 text-sm text-gray-600">
-                                <span className="mr-2">ID: {question.question_id}</span>
-                                <span>Type: {question.type}</span>
+                                <span className="mr-2">ID: {question.question_id || "N/A"}</span>
+                                <span>Type: {question.type || "N/A"}</span>
                                 {question.tags && question.tags.length > 0 && (
                                   <div className="mt-1 flex flex-wrap gap-1">
                                     {question.tags.map(tag => (
@@ -1050,7 +1119,9 @@ const ExamsPage = () => {
                       ))
                     ) : (
                       <div className="text-center py-8 text-gray-500">
-                        No questions found matching your criteria
+                        {filteredQuestions.length === 0 && questions.length > 0
+                          ? "No questions match the current filters"
+                          : "No questions found in the collection"}
                       </div>
                     )}
                   </div>
@@ -1068,7 +1139,7 @@ const ExamsPage = () => {
                     Previous
                   </button>
                   <span className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
+                    Page {currentPage} of {totalPages || 1}
                   </span>
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}

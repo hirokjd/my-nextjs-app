@@ -1,286 +1,795 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { databases, storage, Query } from '../../../utils/appwrite';
+import { getCurrentStudentSession } from '../../../utils/auth';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
-import { databases, Query } from '../../../utils/appwrite';
-import Link from 'next/link';
 
-const ExamDetailsPage = () => {
-  const router = useRouter();
-  const { id } = router.query;
+const BUCKET_ID = 'questions';
+const MAX_TAB_SWITCHES = 3;
+
+const ExamTakingPage = () => {
   const [exam, setExam] = useState(null);
+  const [examQuestions, setExamQuestions] = useState([]);
   const [questions, setQuestions] = useState([]);
+  const [answers, setAnswers] = useState({});
+  const [markedForReview, setMarkedForReview] = useState({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [studentInfo, setStudentInfo] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showQuestionPalette, setShowQuestionPalette] = useState(false); // Hidden by default
+  const [showFullScreenPrompt, setShowFullScreenPrompt] = useState(true);
+  const router = useRouter();
+  const { id: examId } = router.query;
 
+  const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
+  const studentsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID;
+  const examQuestionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID;
+  const questionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID;
+  const examsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
+  const submissionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_SUBMISSIONS_COLLECTION_ID;
+
+  // Log environment variables for debugging
   useEffect(() => {
-    if (!id) return;
+    console.log('Environment Variables:', {
+      databaseId,
+      studentsCollectionId,
+      examsCollectionId,
+      examQuestionsCollectionId,
+      questionsCollectionId,
+      submissionsCollectionId,
+      endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+      projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
+    });
+  }, []);
 
+  const logQuery = (queryName, params, result, error = null) => {
+    console.groupCollapsed(`Query: ${queryName}`);
+    console.log('Params:', params);
+    if (error) {
+      console.error('Error:', error.message, 'Code:', error.code, 'Type:', error.type);
+    } else {
+      console.log('Result:', result);
+    }
+    console.groupEnd();
+  };
+
+  const getFileUrl = async (fileId) => {
+    try {
+      return storage.getFileView(BUCKET_ID, fileId);
+    } catch (error) {
+      console.error('Error fetching image:', error.message);
+      return null;
+    }
+  };
+
+  // Security: Disable copy-paste and right-click
+  useEffect(() => {
+    const preventCopyPaste = (e) => {
+      e.preventDefault();
+      alert('Copying and pasting are disabled during the exam.');
+    };
+
+    const preventRightClick = (e) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener('copy', preventCopyPaste);
+    document.addEventListener('paste', preventCopyPaste);
+    document.addEventListener('contextmenu', preventRightClick);
+
+    return () => {
+      document.removeEventListener('copy', preventCopyPaste);
+      document.removeEventListener('paste', preventCopyPaste);
+      document.removeEventListener('contextmenu', preventRightClick);
+    };
+  }, []);
+
+  // Security: Detect tab switch
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => {
+          const newCount = prev + 1;
+          if (newCount >= MAX_TAB_SWITCHES) {
+            alert(`Warning: Maximum tab switches (${MAX_TAB_SWITCHES}) reached. Please remain on the exam page.`);
+          } else {
+            alert(`Warning: Tab switch detected (${newCount}/${MAX_TAB_SWITCHES}).`);
+          }
+          return newCount;
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Full-screen handling
+  const toggleFullScreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullScreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullScreen(false);
+      }
+    } catch (err) {
+      console.error('Full-screen error:', err.message);
+      setError('Failed to toggle full-screen mode. Please try again or continue without full-screen.');
+    }
+    setShowFullScreenPrompt(false);
+  }, []);
+
+  // Fetch exam data
+  useEffect(() => {
     const fetchExamData = async () => {
+      if (!examId) {
+        setError('No exam ID provided');
+        setLoading(false);
+        return;
+      }
+
+      // Validate environment variables
+      if (!databaseId || !studentsCollectionId || !examsCollectionId || !examQuestionsCollectionId || !questionsCollectionId || !submissionsCollectionId) {
+        setError('Missing required environment variables. Please contact your administrator.');
+        setLoading(false);
+        return;
+      }
+
       try {
-        setLoading(true);
-        setError(null);
-
-        // Verify environment variables are set
-        const requiredEnvVars = [
-          'NEXT_PUBLIC_APPWRITE_DATABASE_ID',
-          'NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID',
-          'NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID',
-          'NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID'
-        ];
-
-        const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-        if (missingVars.length > 0) {
-          throw new Error(`Missing environment variables: ${missingVars.join(', ')}`);
+        // Validate session
+        const session = await getCurrentStudentSession();
+        console.log('Session:', session);
+        if (!session?.email) {
+          console.warn('No valid session found, redirecting to login');
+          router.push('/login');
+          return;
         }
 
-        // Fetch exam details
-        const examData = await databases.getDocument(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-          process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
-          id
-        );
-        
-        // Fetch exam questions mapping
-        const examQuestions = await databases.listDocuments(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-          process.env.NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID,
-          [Query.equal('exam_id', id)]
-        );
-        
-        // Extract question IDs
-        const questionIds = examQuestions.documents.map(q => q.question_id).filter(Boolean);
-        
-        // Fetch actual questions if there are any
-        let questionsData = { documents: [] };
-        if (questionIds.length > 0) {
-          questionsData = await databases.listDocuments(
-            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-            process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID,
-            [Query.equal('$id', questionIds)]
+        // Query 1: Get student by email
+        const studentQueryParams = {
+          databaseId,
+          collectionId: studentsCollectionId,
+          queries: [Query.equal('email', session.email)]
+        };
+
+        let studentResponse;
+        try {
+          studentResponse = await databases.listDocuments(
+            studentQueryParams.databaseId,
+            studentQueryParams.collectionId,
+            studentQueryParams.queries
           );
+          logQuery('Get Student by Email', studentQueryParams, {
+            total: studentResponse.total,
+            documents: studentResponse.documents.map(d => ({
+              $id: d.$id,
+              name: d.name,
+              email: d.email
+            }))
+          });
+        } catch (err) {
+          logQuery('Get Student by Email', studentQueryParams, null, err);
+          throw new Error(`Student query failed: ${err.message}. Check permissions for students collection.`);
         }
 
-        // Combine questions with their marks
-        const questionsWithMarks = questionsData.documents.map(question => {
-          const examQuestion = examQuestions.documents.find(
-            eq => eq.question_id === question.$id
-          );
-          return {
-            ...question,
-            marks: examQuestion?.marks || 1
-          };
+        if (studentResponse.total === 0) {
+          throw new Error('Student record not found');
+        }
+
+        const student = studentResponse.documents[0];
+        setStudentInfo({
+          name: student.name,
+          email: student.email,
+          studentId: student.$id,
         });
 
+        // Query 2: Get exam details
+        const examQueryParams = {
+          databaseId,
+          collectionId: examsCollectionId,
+          queries: [Query.equal('$id', examId)]
+        };
+
+        let examResponse;
+        try {
+          examResponse = await databases.listDocuments(
+            examQueryParams.databaseId,
+            examQueryParams.collectionId,
+            examQueryParams.queries
+          );
+          logQuery('Get Exam', examQueryParams, {
+            total: examResponse.total,
+            documents: examResponse.documents
+          });
+        } catch (err) {
+          logQuery('Get Exam', examQueryParams, null, err);
+          throw new Error(`Exam query failed: ${err.message}. Check permissions for exams collection.`);
+        }
+
+        if (examResponse.total === 0) {
+          throw new Error('Exam not found');
+        }
+
+        const examData = examResponse.documents[0];
         setExam(examData);
-        setQuestions(questionsWithMarks);
+        setTimeRemaining(examData.duration * 60);
+
+        // Query 3: Get exam questions
+        const examQuestionsQueryParams = {
+          databaseId,
+          collectionId: examQuestionsCollectionId,
+          queries: [Query.orderAsc('order')]
+        };
+
+        let examQuestionsResponse;
+        try {
+          examQuestionsResponse = await databases.listDocuments(
+            examQuestionsQueryParams.databaseId,
+            examQuestionsQueryParams.collectionId,
+            examQuestionsQueryParams.queries
+          );
+          logQuery('Get Exam Questions', examQuestionsQueryParams, {
+            total: examQuestionsResponse.total,
+            documents: examQuestionsResponse.documents
+          });
+        } catch (err) {
+          logQuery('Get Exam Questions', examQuestionsQueryParams, null, err);
+          throw new Error(`Exam questions query failed: ${err.message}. Check permissions for exam_questions collection.`);
+        }
+
+        const filteredExamQuestions = examQuestionsResponse.documents.filter(doc => {
+          const examRef = doc.exam_id;
+          if (Array.isArray(examRef)) {
+            return examRef.some(ref => ref.$id === examId || ref === examId);
+          } else if (typeof examRef === 'object' && examRef !== null) {
+            return examRef.$id === examId;
+          }
+          return examRef === examId;
+        });
+
+        setExamQuestions(filteredExamQuestions);
+
+        // Query 4: Get questions with images
+        const questionIds = filteredExamQuestions.map(eq => {
+          const questionRef = eq.question_id;
+          if (Array.isArray(questionRef)) {
+            return questionRef[0]?.$id || questionRef[0];
+          } else if (typeof questionRef === 'object' && questionRef !== null) {
+            return questionRef.$id;
+          }
+          return questionRef;
+        }).filter(id => id);
+
+        if (questionIds.length > 0) {
+          const questionsQueryParams = {
+            databaseId,
+            collectionId: questionsCollectionId,
+            queries: [Query.limit(100)]
+          };
+
+          let questionsResponse;
+          try {
+            questionsResponse = await databases.listDocuments(
+              questionsQueryParams.databaseId,
+              questionsQueryParams.collectionId,
+              questionsQueryParams.queries
+            );
+            logQuery('Get Questions', questionsQueryParams, {
+              total: questionsResponse.total,
+              documents: questionsResponse.documents
+            });
+          } catch (err) {
+            logQuery('Get Questions', questionsQueryParams, null, err);
+            throw new Error(`Questions query failed: ${err.message}. Check permissions for questions collection.`);
+        }
+
+          const updatedQuestions = await Promise.all(
+            questionsResponse.documents
+              .filter(q => questionIds.includes(q.$id) || questionIds.includes(q.question_id))
+              .map(async (q) => ({
+                ...q,
+                imageUrl: q.image_id ? await getFileUrl(q.image_id) : null,
+                optionsImageUrls: await Promise.all(
+                  (q.options_image || []).map(async (imgId) => 
+                    imgId ? await getFileUrl(imgId) : null
+                  )
+                )
+              }))
+          );
+
+          setQuestions(updatedQuestions);
+        }
       } catch (err) {
-        console.error('Exam data fetch error:', err);
-        setError(err.message || 'Failed to load exam data. Please try again.');
+        console.error('Error in fetchExamData:', {
+          message: err.message,
+          stack: err.stack,
+          timestamp: new Date().toISOString()
+        });
+        setError(err.message || 'Failed to load exam. Please check your permissions or try again later.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchExamData();
-  }, [id]);
+  }, [examId, router]);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  // Timer effect
+  useEffect(() => {
+    if (timeRemaining === null || timeRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmit(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeRemaining]);
+
+  const getQuestionById = (questionId) => {
+    return questions.find(q => q.$id === questionId) || 
+           questions.find(q => q.question_id === questionId);
+  };
+
+  const getQuestionOrder = (questionId) => {
+    const mapping = examQuestions.find(eq => {
+      const qRef = eq.question_id;
+      const refId = Array.isArray(qRef) ? qRef[0]?.$id || qRef[0] : 
+                   (typeof qRef === 'object' ? qRef.$id : qRef);
+      return refId === questionId;
     });
+    return mapping?.order || 'N/A';
   };
 
-  const getExamStatus = () => {
-    if (!exam) return 'loading';
-    const now = new Date();
-    const startTime = new Date(exam.exam_date);
-    const endTime = new Date(startTime.getTime() + exam.duration * 60000);
-
-    if (now < startTime) return 'upcoming';
-    if (now >= startTime && now <= endTime) return 'ongoing';
-    return 'completed';
+  const getQuestionMarks = (questionId) => {
+    const mapping = examQuestions.find(eq => {
+      const qRef = eq.question_id;
+      const qRefId = Array.isArray(qRef) ? qRef[0]?.$id || qRef[0] : 
+                     (typeof qRef === 'object' ? qRef.$id : qRef);
+      return qRefId === questionId;
+    });
+    return mapping?.marks || 'N/A';
   };
+
+  const handleAnswerChange = (questionId, optionIndex) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: optionIndex
+    }));
+    setMarkedForReview(prev => ({
+      ...prev,
+      [questionId]: false
+    }));
+  };
+
+  const handleMarkForReview = (questionId) => {
+    setMarkedForReview(prev => ({
+      ...prev,
+      [questionId]: !prev[questionId]
+    }));
+  };
+
+  const handleSkip = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    }
+  };
+
+  const handleJumpToQuestion = (index) => {
+    setCurrentQuestionIndex(index);
+  };
+
+  const handleSubmit = async (autoSubmit = false) => {
+    if (!autoSubmit && !confirm('Are you sure you want to submit the exam?')) {
+      return;
+    }
+
+    try {
+      const submission = {
+        student_id: studentInfo.studentId,
+        exam_id: examId,
+        answers: JSON.stringify(answers),
+        marked_for_review: JSON.stringify(markedForReview),
+        submitted_at: new Date().toISOString(),
+        tab_switch_count: tabSwitchCount
+      };
+
+      // Validate environment variables for submission
+      if (!databaseId || !submissionsCollectionId) {
+        throw new Error('Missing required environment variables for submission. Check NEXT_PUBLIC_APPWRITE_DATABASE_ID and NEXT_PUBLIC_APPWRITE_SUBMISSIONS_COLLECTION_ID.');
+      }
+
+      try {
+        await databases.createDocument(
+          databaseId,
+          submissionsCollectionId,
+          'unique()',
+          submission
+        );
+        logQuery('Submit Exam', { databaseId, collectionId: submissionsCollectionId }, submission);
+      } catch (err) {
+        logQuery('Submit Exam', { databaseId, collectionId: submissionsCollectionId }, null, err);
+        throw new Error(`Submission failed: ${err.message}. Check permissions for submissions collection.`);
+      }
+
+      router.push('/student/exams?submitted=true');
+    } catch (err) {
+      console.error('Error submitting exam:', {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
+      setError(err.message || 'Failed to submit exam. Please try again or contact your administrator.');
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const answeredCount = Object.keys(answers).length;
+  const markedCount = Object.values(markedForReview).filter(v => v).length;
+  const notVisitedCount = questions.length - answeredCount - markedCount;
+  const progressPercentage = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-600">Loading exam...</span>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6">
-          <p className="font-medium">Error loading exam</p>
+      <div className="container mx-auto px-4 py-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+          <p className="font-medium">Error loading exam:</p>
           <p className="mt-1">{error}</p>
-          <div className="mt-4 flex gap-3">
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-            >
-              Try again
-            </button>
-            <Link 
-              href="/student/exams"
-              className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-sm hover:bg-gray-300"
-            >
-              Back to exams
-            </Link>
-          </div>
+          <p className="mt-1 text-sm">If this is a permissions issue, please contact your administrator.</p>
+          <button
+            onClick={() => router.push('/student/exams')}
+            className="mt-3 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+          >
+            Return to Exams
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!exam) {
+  if (!exam || exam.status !== 'active') {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
-          <p>Exam not found</p>
-          <Link 
-            href="/student/exams" 
-            className="mt-2 inline-block text-sm text-yellow-700 hover:underline"
+          <p>This exam is not currently available.</p>
+          <button
+            onClick={() => router.push('/student/exams')}
+            className="mt-3 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
           >
-            Back to exams
-          </Link>
+            Return to Exams
+          </button>
         </div>
       </div>
     );
   }
+
+  const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6 select-none">
+      {/* Full-Screen Prompt */}
+      {showFullScreenPrompt && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h3 className="text-lg font-semibold mb-4">Enter Full-Screen Mode</h3>
+            <p className="text-gray-600 mb-6">
+              This exam requires full-screen mode for security. Click below to proceed.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowFullScreenPrompt(false)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Continue Without Full-Screen
+              </button>
+              <button
+                onClick={toggleFullScreen}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Enter Full-Screen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{exam.name}</h1>
-          <p className="text-gray-600 mt-1">
-            Exam ID: {exam.exam_id}
+          <p className="text-sm text-gray-600">
+            {studentInfo && `Student: ${studentInfo.name} (${studentInfo.email})`}
+          </p>
+          <p className="text-sm text-gray-600 mt-1">
+            Question {currentQuestionIndex + 1} of {questions.length}
           </p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-          getExamStatus() === 'ongoing' ? 'bg-green-100 text-green-800' :
-          getExamStatus() === 'upcoming' ? 'bg-blue-100 text-blue-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {getExamStatus()}
-        </span>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <h2 className="text-sm font-medium text-gray-500">Date & Time</h2>
-            <p className="mt-1 text-gray-800">{formatDate(exam.exam_date)}</p>
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-gray-500">Duration</h2>
-            <p className="mt-1 text-gray-800">{exam.duration} minutes</p>
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-gray-500">Total Marks</h2>
-            <p className="mt-1 text-gray-800">
-              {questions.reduce((sum, q) => sum + (q.marks || 1), 0)}
-            </p>
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-gray-500">Total Questions</h2>
-            <p className="mt-1 text-gray-800">{questions.length}</p>
-          </div>
+        <div className="text-right">
+          <p className="text-sm font-medium text-red-600">
+            Time Remaining: {formatTime(timeRemaining)}
+          </p>
+          <p className="text-sm text-gray-600 mt-1">
+            Tab Switches: {tabSwitchCount}/{MAX_TAB_SWITCHES}
+          </p>
         </div>
-
-        {exam.description && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h2 className="text-sm font-medium text-gray-500">Description</h2>
-            <p className="mt-1 text-gray-800 whitespace-pre-line">
-              {exam.description}
-            </p>
-          </div>
-        )}
       </div>
 
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Questions Preview</h2>
-        
-        {questions.length > 0 ? (
-          <div className="space-y-4">
-            {questions.map((question, index) => (
-              <div key={question.$id} className="bg-white rounded-lg shadow p-4">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-medium text-gray-800">
-                    Q{index + 1}. {question.text}
-                  </h3>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                    {question.marks} mark{question.marks !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                
-                {question.options_text && (
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {question.options_text.map((option, i) => (
-                      <div 
-                        key={i} 
-                        className={`p-3 rounded text-sm ${
-                          question.correct_answer === i 
-                            ? 'bg-green-50 border border-green-200 text-green-800' 
-                            : 'bg-gray-50 border border-gray-200 text-gray-800'
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div
+            className="bg-blue-600 h-2.5 rounded-full"
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+        <p className="text-sm text-gray-600 mt-1">
+          Progress: {answeredCount}/{questions.length} questions answered
+        </p>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex gap-6">
+        <div className="flex-1">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Current Question</h2>
+              <button
+                onClick={() => setShowQuestionPalette(prev => !prev)}
+                className="text-blue-600 hover:text-blue-700 text-sm"
+              >
+                {showQuestionPalette ? 'Hide Question Palette' : 'Show Question Palette'}
+              </button>
+            </div>
+            {questions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No questions found for this exam.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {currentQuestion && (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-medium text-lg">
+                          Question {getQuestionOrder(currentQuestion.$id)} (Marks: {getQuestionMarks(currentQuestion.$id)})
+                        </h3>
+                        {currentQuestion.text && (
+                          <p className="text-gray-700 mt-2">{currentQuestion.text}</p>
+                        )}
+                        {currentQuestion.imageUrl && (
+                          <img
+                            src={currentQuestion.imageUrl}
+                            alt="Question"
+                            className="mt-3 max-h-80 w-full object-contain border rounded-lg"
+                          />
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {currentQuestion.difficulty && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                              Difficulty: {currentQuestion.difficulty}
+                            </span>
+                          )}
+                          {currentQuestion.topic && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                              Topic: {currentQuestion.topic}
+                            </span>
+                          )}
+                          {currentQuestion.type && (
+                            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                              Type: {currentQuestion.type}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end space-y-1">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+                          ID: {currentQuestion.$id}
+                        </span>
+                        {currentQuestion.question_id && (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                            Question ID: {currentQuestion.question_id}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {currentQuestion.options_text.map((option, index) => (
+                        <label
+                          key={index}
+                          className={`flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                            answers[currentQuestion.$id] === index
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`question-${currentQuestion.$id}`}
+                            checked={answers[currentQuestion.$id] === index}
+                            onChange={() => handleAnswerChange(currentQuestion.$id, index)}
+                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="ml-3 flex-1">
+                            {option && <p className="text-gray-700">{option}</p>}
+                            {currentQuestion.optionsImageUrls?.[index] && (
+                              <img
+                                src={currentQuestion.optionsImageUrls[index]}
+                                alt={`Option ${index + 1}`}
+                                className="mt-2 max-h-40 w-full object-contain"
+                              />
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => handleMarkForReview(currentQuestion.$id)}
+                        className={`py-2 px-4 rounded-md text-white ${
+                          markedForReview[currentQuestion.$id]
+                            ? 'bg-yellow-600 hover:bg-yellow-700'
+                            : 'bg-yellow-500 hover:bg-yellow-600'
                         }`}
                       >
-                        <span className="font-medium">
-                          {String.fromCharCode(65 + i)}.
-                        </span> {option}
-                      </div>
-                    ))}
+                        {markedForReview[currentQuestion.$id] ? 'Unmark Review' : 'Mark for Review'}
+                      </button>
+                      <button
+                        onClick={handleSkip}
+                        className="py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
+                      >
+                        Skip
+                      </button>
+                    </div>
                   </div>
                 )}
+                <div className="mt-6 flex justify-between items-center">
+                  <button
+                    onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+                    disabled={currentQuestionIndex === 0}
+                    className={`py-2 px-4 rounded-md text-white ${
+                      currentQuestionIndex === 0
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <div className="flex gap-3">
+                    {currentQuestionIndex < questions.length - 1 ? (
+                      <button
+                        onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                        className="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                      >
+                        Next
+                      </button>
+                    ) : null}
+                    <button
+                      onClick={() => setShowSubmitConfirm(true)}
+                      className="py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md"
+                    >
+                      Submit Exam
+                    </button>
+                  </div>
+                </div>
               </div>
-            ))}
+            )}
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-500">No questions found for this exam</p>
+        </div>
+        {showQuestionPalette && (
+          <div className="w-80">
+            <div className="bg-white p-4 rounded-lg shadow sticky top-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Question Palette</h3>
+                <button
+                  onClick={() => setShowQuestionPalette(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700">Progress</h4>
+                <div className="mt-2 text-sm">
+                  <p>Answered: {answeredCount}</p>
+                  <p>Marked for Review: {markedCount}</p>
+                  <p>Not Visited: {notVisitedCount}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {questions.map((q, index) => {
+                  const isAnswered = answers[q.$id] !== undefined;
+                  const isMarked = markedForReview[q.$id];
+                  return (
+                    <button
+                      key={q.$id}
+                      onClick={() => handleJumpToQuestion(index)}
+                      className={`p-2 rounded text-white text-sm ${
+                        index === currentQuestionIndex
+                          ? 'bg-blue-600'
+                          : isAnswered
+                          ? 'bg-green-500'
+                          : isMarked
+                          ? 'bg-yellow-500'
+                          : 'bg-gray-400'
+                      }`}
+                      title={`Question ${index + 1}: ${
+                        index === currentQuestionIndex
+                          ? 'Current'
+                          : isAnswered
+                          ? 'Answered'
+                          : isMarked
+                          ? 'Marked for Review'
+                          : 'Not Visited'
+                      }`}
+                    >
+                      {index + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Link
-          href="/student/exams"
-          className="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded text-center transition-colors"
-        >
-          Back to Exams
-        </Link>
-        
-        {getExamStatus() === 'ongoing' ? (
-          <Link
-            href={`/student/exams/take/${exam.$id}`}
-            className="inline-block bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-center transition-colors"
-          >
-            Start Exam Now
-          </Link>
-        ) : getExamStatus() === 'upcoming' ? (
-          <button
-            disabled
-            className="inline-block bg-gray-200 text-gray-600 px-4 py-2 rounded cursor-not-allowed"
-          >
-            Exam starts at {formatDate(exam.exam_date)}
-          </button>
-        ) : (
-          <button
-            disabled
-            className="inline-block bg-gray-200 text-gray-600 px-4 py-2 rounded cursor-not-allowed"
-          >
-            Exam has ended
-          </button>
-        )}
-      </div>
+      {/* Submit Confirmation Modal */}
+      {showSubmitConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h3 className="text-lg font-semibold mb-4">Confirm Submission</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to submit the exam? You cannot make changes after submission.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowSubmitConfirm(false)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowSubmitConfirm(false);
+                  handleSubmit();
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default ExamDetailsPage;
+export default ExamTakingPage;
