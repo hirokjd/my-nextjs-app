@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
-import Modal from "../../components/Modal";
-import { databases, ID, Query, Permission, Role } from "../../utils/appwrite";
-import { account } from "../../utils/appwrite";
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiBook, FiCalendar, FiClock, FiPlus, FiRefreshCw, FiEdit, FiTrash2, FiEye } from 'react-icons/fi';
+import { useRouter } from 'next/router';
+import { databases, ID, Query, Permission, Role } from '../../utils/appwrite';
+import { account } from '../../utils/appwrite';
+import Modal from '../../components/Modal';
 
 const ExamsPage = () => {
-  // State declarations remain the same
+  const router = useRouter();
   const [exams, setExams] = useState([]);
   const [filteredExams, setFilteredExams] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,11 +44,44 @@ const ExamsPage = () => {
   const questionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID;
   const examQuestionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID;
 
-  // Fetch exams
+  const logQuery = (queryName, params, result, error = null) => {
+    console.groupCollapsed(`Query: ${queryName}`);
+    console.log('Params:', params);
+    if (error) {
+      console.error('Error:', error);
+    } else {
+      console.log('Result:', result);
+    }
+    console.groupEnd();
+  };
+
+  // Fetch exams with query logging
   const fetchExams = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const response = await databases.listDocuments(databaseId, examsCollectionId);
+      const queryParams = {
+        databaseId,
+        collectionId: examsCollectionId,
+        queries: [Query.orderDesc("$createdAt")]
+      };
+
+      let response;
+      try {
+        response = await databases.listDocuments(
+          queryParams.databaseId,
+          queryParams.collectionId,
+          queryParams.queries
+        );
+        logQuery('Fetch Exams', queryParams, {
+          total: response.total,
+          documents: response.documents
+        });
+      } catch (err) {
+        logQuery('Fetch Exams', queryParams, null, err);
+        throw err;
+      }
+
       const examsWithDates = response.documents.map(exam => ({
         ...exam,
         exam_date_obj: new Date(exam.exam_date)
@@ -65,20 +100,48 @@ const ExamsPage = () => {
       setExams(sortedExams);
       setFilteredExams(sortedExams);
     } catch (err) {
-      console.error("Error fetching exams:", err);
+      console.error('Error fetching exams:', {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
       setError("Failed to load exams. Please try again.");
     } finally {
       setIsLoading(false);
     }
   }, [databaseId, examsCollectionId]);
 
-  // Fetch all questions
+  // Fetch questions with query logging
   const fetchQuestions = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const response = await databases.listDocuments(databaseId, questionsCollectionId);
+      const queryParams = {
+        databaseId,
+        collectionId: questionsCollectionId,
+        queries: [Query.orderDesc("$createdAt"), Query.limit(500)]
+      };
+
+      let response;
+      try {
+        response = await databases.listDocuments(
+          queryParams.databaseId,
+          queryParams.collectionId,
+          queryParams.queries
+        );
+        logQuery('Fetch Questions', queryParams, {
+          total: response.total,
+          documents: response.documents
+        });
+      } catch (err) {
+        logQuery('Fetch Questions', queryParams, null, err);
+        throw err;
+      }
+
       setQuestions(response.documents);
       setFilteredQuestions(response.documents);
       
+      // Extract unique tags
       const tags = new Set();
       response.documents.forEach(question => {
         if (question.tags && Array.isArray(question.tags)) {
@@ -87,19 +150,46 @@ const ExamsPage = () => {
       });
       setAvailableTags(Array.from(tags).sort());
     } catch (err) {
-      console.error("Error fetching questions:", err);
-      setError("Failed to load questions");
+      console.error('Error fetching questions:', {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
+      setError("Failed to load questions. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   }, [databaseId, questionsCollectionId]);
 
-  // Fetch questions for a specific exam
+  // Fetch exam questions with query logging
   const fetchExamQuestions = useCallback(async (examId) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const response = await databases.listDocuments(
+      const queryParams = {
         databaseId,
-        examQuestionsCollectionId,
-        [Query.equal("exam_id", examId)]
-      );
+        collectionId: examQuestionsCollectionId,
+        queries: [
+          Query.equal("exam_id", examId),
+          Query.orderAsc("order")
+        ]
+      };
+
+      let response;
+      try {
+        response = await databases.listDocuments(
+          queryParams.databaseId,
+          queryParams.collectionId,
+          queryParams.queries
+        );
+        logQuery('Fetch Exam Questions', queryParams, {
+          total: response.total,
+          documents: response.documents
+        });
+      } catch (err) {
+        logQuery('Fetch Exam Questions', queryParams, null, err);
+        throw err;
+      }
 
       const marksMap = {};
       const questionIds = [];
@@ -111,55 +201,112 @@ const ExamsPage = () => {
       setQuestionMarks(marksMap);
       return { documents: response.documents, questionIds };
     } catch (err) {
-      console.error("Error fetching exam questions:", err);
+      console.error('Error fetching exam questions:', {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
       setError("Failed to load exam questions. Please try again.");
       return { documents: [], questionIds: [] };
+    } finally {
+      setIsLoading(false);
     }
   }, [databaseId, examQuestionsCollectionId]);
 
-  // Fetch full question details for an exam
+  // Fetch questions for exam with query logging
   const fetchQuestionsForExam = useCallback(async (examId) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const examQuestions = await databases.listDocuments(
+      // First get all exam-question relationships
+      const examQuestionsQueryParams = {
         databaseId,
-        examQuestionsCollectionId,
-        [Query.equal("exam_id", examId)]
-      );
+        collectionId: examQuestionsCollectionId,
+        queries: [
+          Query.equal("exam_id", examId),
+          Query.orderAsc("order")
+        ]
+      };
 
-      if (examQuestions.documents.length > 0) {
-        const questionIds = examQuestions.documents.map(q => q.question_id);
-        const questionsResponse = await databases.listDocuments(
-          databaseId,
-          questionsCollectionId,
-          [Query.equal("$id", questionIds)]
+      let examQuestionsResponse;
+      try {
+        examQuestionsResponse = await databases.listDocuments(
+          examQuestionsQueryParams.databaseId,
+          examQuestionsQueryParams.collectionId,
+          examQuestionsQueryParams.queries
         );
+        logQuery('Fetch Exam-Question Relationships', examQuestionsQueryParams, {
+          total: examQuestionsResponse.total,
+          documents: examQuestionsResponse.documents
+        });
+      } catch (err) {
+        logQuery('Fetch Exam-Question Relationships', examQuestionsQueryParams, null, err);
+        throw err;
+      }
 
+      if (examQuestionsResponse.documents.length > 0) {
+        // Then get the full question details
+        const questionIds = examQuestionsResponse.documents.map(q => q.question_id);
+        const questionsQueryParams = {
+          databaseId,
+          collectionId: questionsCollectionId,
+          queries: [Query.equal("$id", questionIds)]
+        };
+
+        let questionsResponse;
+        try {
+          questionsResponse = await databases.listDocuments(
+            questionsQueryParams.databaseId,
+            questionsQueryParams.collectionId,
+            questionsQueryParams.queries
+          );
+          logQuery('Fetch Questions for Exam', questionsQueryParams, {
+            total: questionsResponse.total,
+            documents: questionsResponse.documents
+          });
+        } catch (err) {
+          logQuery('Fetch Questions for Exam', questionsQueryParams, null, err);
+          throw err;
+        }
+
+        // Create a map of question marks
         const marksMap = {};
-        examQuestions.documents.forEach(q => {
+        examQuestionsResponse.documents.forEach(q => {
           marksMap[q.question_id] = q.marks;
         });
 
+        // Return questions in the correct order
+        const orderedQuestions = examQuestionsResponse.documents.map(eq => {
+          const question = questionsResponse.documents.find(q => q.$id === eq.question_id);
+          return {
+            ...question,
+            order: eq.order,
+            marks: eq.marks
+          };
+        });
+
         return {
-          questions: questionsResponse.documents,
+          questions: orderedQuestions,
           marks: marksMap,
-          examQuestions: examQuestions.documents
+          examQuestions: examQuestionsResponse.documents
         };
       }
 
       return { questions: [], marks: {}, examQuestions: [] };
     } catch (err) {
-      console.error("Error fetching questions for exam:", err);
-      setError("Failed to load exam questions");
+      console.error('Error fetching questions for exam:', {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
+      setError("Failed to load exam questions. Please try again.");
       return { questions: [], marks: {}, examQuestions: [] };
+    } finally {
+      setIsLoading(false);
     }
   }, [databaseId, questionsCollectionId, examQuestionsCollectionId]);
 
-  useEffect(() => {
-    fetchExams();
-    fetchQuestions();
-  }, [fetchExams, fetchQuestions]);
-
-  // Filter questions
+  // Filter questions based on search and filters
   useEffect(() => {
     let results = questions;
     
@@ -186,6 +333,12 @@ const ExamsPage = () => {
     setCurrentPage(1);
   }, [searchTerm, difficultyFilter, tagFilter, questions]);
 
+  // Initial data fetch
+  useEffect(() => {
+    fetchExams();
+    fetchQuestions();
+  }, [fetchExams, fetchQuestions]);
+
   // Modal handlers
   const openModal = (exam = null) => {
     setSelectedExam(exam);
@@ -194,7 +347,7 @@ const ExamsPage = () => {
         exam_id: exam.exam_id || "",
         name: exam.name || "",
         description: exam.description || "",
-        exam_date: exam.exam_date || "",
+        exam_date: exam.exam_date ? exam.exam_date.substring(0, 16) : "",
         duration: exam.duration?.toString() || "",
         status: exam.status || "active",
       } : initialFormData
@@ -206,15 +359,8 @@ const ExamsPage = () => {
     setSelectedExam(exam);
     setIsLoading(true);
     try {
-      const { questionIds, documents } = await fetchExamQuestions(exam.$id);
+      const { questionIds } = await fetchExamQuestions(exam.$id);
       setSelectedQuestions(questionIds);
-      
-      const marksMap = {};
-      documents.forEach(q => {
-        marksMap[q.question_id] = q.marks;
-      });
-      setQuestionMarks(marksMap);
-      
       setIsQuestionModalOpen(true);
     } catch (err) {
       setError("Failed to load exam questions");
@@ -227,8 +373,7 @@ const ExamsPage = () => {
     setSelectedExam(exam);
     setIsLoading(true);
     try {
-      const { questions: examQuestions } = await fetchQuestionsForExam(exam.$id);
-      setFilteredQuestions(examQuestions);
+      await fetchQuestionsForExam(exam.$id);
       setIsViewQuestionsModalOpen(true);
     } catch (err) {
       setError("Failed to load exam questions");
@@ -258,10 +403,9 @@ const ExamsPage = () => {
   const closeViewQuestionsModal = () => {
     setIsViewQuestionsModalOpen(false);
     setSelectedExam(null);
-    setFilteredQuestions(questions);
   };
 
-  // Other handlers
+  // Input handlers
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -281,9 +425,10 @@ const ExamsPage = () => {
   };
 
   const handleMarksChange = (questionId, value) => {
+    const marksValue = parseInt(value) || 1;
     setQuestionMarks(prev => ({
       ...prev,
-      [questionId]: parseInt(value) || 1
+      [questionId]: marksValue > 0 ? marksValue : 1
     }));
   };
 
@@ -344,7 +489,11 @@ const ExamsPage = () => {
       closeModal();
       await fetchExams();
     } catch (err) {
-      console.error("Error saving exam:", err);
+      console.error("Error saving exam:", {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
       setError(err.message || "Failed to save exam");
     } finally {
       setIsLoading(false);
@@ -412,7 +561,11 @@ const ExamsPage = () => {
 
       closeQuestionModal();
     } catch (err) {
-      console.error("Error saving exam questions:", err);
+      console.error("Error saving exam questions:", {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
       setError(err.message || "Failed to save exam questions");
     } finally {
       setIsLoading(false);
@@ -439,7 +592,11 @@ const ExamsPage = () => {
       await fetchExams();
       closeExamDetails();
     } catch (err) {
-      console.error("Error deleting exam:", err);
+      console.error("Error deleting exam:", {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
       setError(err.message || "Failed to delete exam");
     } finally {
       setIsLoading(false);
@@ -448,6 +605,7 @@ const ExamsPage = () => {
 
   // Helper functions
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     const options = { 
       year: 'numeric', 
       month: 'long', 
@@ -456,6 +614,12 @@ const ExamsPage = () => {
       minute: '2-digit' 
     };
     return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
+  const formatDuration = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
   const getExamStatus = (examDate) => {
@@ -479,99 +643,164 @@ const ExamsPage = () => {
     setSelectedExamDetail(null);
   };
 
-  // Render
+  const refreshData = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      await Promise.all([fetchExams(), fetchQuestions()]);
+    } catch (err) {
+      setError("Failed to refresh data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading && !exams.length) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3">Loading exams data...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-8">
       {/* Header and Add Exam button */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Manage Exams</h2>
-        <button
-          onClick={() => openModal()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
-        >
-          + Add Exam
-        </button>
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+          <FiBook className="mr-2 text-blue-600" />
+          Manage Exams
+        </h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={refreshData}
+            className="flex items-center bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md transition-colors"
+            disabled={isLoading}
+          >
+            <FiRefreshCw className={`mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+            disabled={isLoading}
+          >
+            <FiPlus className="mr-1" />
+            Add Exam
+          </button>
+        </div>
       </div>
 
       {/* Error display */}
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
           <p>{error}</p>
+          <button 
+            onClick={refreshData}
+            className="mt-2 text-sm text-red-700 hover:underline"
+            disabled={isLoading}
+          >
+            Try again
+          </button>
         </div>
       )}
 
-      {/* Loading state */}
-      {isLoading && !exams.length ? (
-        <div className="flex justify-center items-center h-64">
-          <p className="text-gray-500">Loading exams...</p>
+      {/* Exams List */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+            <FiCalendar className="mr-2 text-blue-600" />
+            All Exams
+          </h2>
+          <span className="text-sm text-gray-500">
+            {exams.length} exam{exams.length !== 1 ? 's' : ''}
+          </span>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredExams.map((exam) => (
-            <div 
-              key={exam.$id}
-              onClick={() => viewExamDetails(exam)}
-              className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                getExamStatus(exam.exam_date) === "Expired" 
-                  ? "bg-gray-50 border-gray-200" 
-                  : "bg-white border-blue-100"
-              }`}
+
+        {exams.length > 0 ? (
+          <div className="space-y-4">
+            {exams.map((exam) => (
+              <div 
+                key={exam.$id}
+                onClick={() => viewExamDetails(exam)}
+                className={`border border-gray-100 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                  getExamStatus(exam.exam_date) === "Expired" 
+                    ? "bg-gray-50" 
+                    : "bg-white"
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-gray-800">{exam.name}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{exam.exam_id}</p>
+                    <div className="mt-2 flex items-center space-x-2">
+                      <span className="flex items-center text-sm text-gray-500">
+                        <FiCalendar className="mr-1" /> {formatDate(exam.exam_date)}
+                      </span>
+                      <span className="flex items-center text-sm text-gray-500">
+                        <FiClock className="mr-1" /> {formatDuration(exam.duration)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      exam.status === "active" 
+                        ? "bg-green-100 text-green-800" 
+                        : exam.status === "completed" 
+                          ? "bg-blue-100 text-blue-800" 
+                          : "bg-gray-100 text-gray-800"
+                    }`}>
+                      {exam.status}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      getExamStatus(exam.exam_date) === "Expired" 
+                        ? "bg-red-100 text-red-800" 
+                        : "bg-green-100 text-green-800"
+                    }`}>
+                      {getExamStatus(exam.exam_date)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 flex space-x-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openQuestionModal(exam);
+                    }}
+                    className="flex items-center text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
+                    disabled={isLoading}
+                  >
+                    <FiEdit className="mr-1" /> Manage Questions
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openViewQuestionsModal(exam);
+                    }}
+                    className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                    disabled={isLoading}
+                  >
+                    <FiEye className="mr-1" /> View Questions
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">No exams found</p>
+            <button
+              onClick={() => openModal()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              {/* Exam card content */}
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{exam.name}</h3>
-                  <p className="text-sm text-gray-600">{exam.exam_id}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    exam.status === "active" 
-                      ? "bg-green-100 text-green-800" 
-                      : exam.status === "completed" 
-                        ? "bg-blue-100 text-blue-800" 
-                        : "bg-gray-100 text-gray-800"
-                  }`}>
-                    {exam.status}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    getExamStatus(exam.exam_date) === "Expired" 
-                      ? "bg-red-100 text-red-800" 
-                      : "bg-green-100 text-green-800"
-                  }`}>
-                    {getExamStatus(exam.exam_date)}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2 text-sm text-gray-600">
-                <p>{formatDate(exam.exam_date)} • {exam.duration} minutes</p>
-                {exam.description && (
-                  <p className="mt-1 line-clamp-2">{exam.description}</p>
-                )}
-              </div>
-              <div className="mt-3 flex space-x-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openQuestionModal(exam);
-                  }}
-                  className="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
-                >
-                  Manage Questions
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openViewQuestionsModal(exam);
-                  }}
-                  className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                >
-                  View Questions
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              Create First Exam
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Exam Modal */}
       {isModalOpen && (
@@ -582,11 +811,11 @@ const ExamsPage = () => {
           onSave={handleSave}
           initialData={formData}
           fields={[
-            { name: "exam_id", label: "Exam ID", type: "text", required: true },
+            { name: "exam_id", label: "Exam ID", type: "text", required: true, disabled: !!selectedExam },
             { name: "name", label: "Exam Name", type: "text", required: true },
             { name: "description", label: "Description", type: "textarea" },
             { name: "exam_date", label: "Exam Date", type: "datetime-local", required: true },
-            { name: "duration", label: "Duration (minutes)", type: "number", required: true },
+            { name: "duration", label: "Duration (minutes)", type: "number", required: true, min: 1 },
             {
               name: "status",
               label: "Status",
@@ -619,6 +848,7 @@ const ExamsPage = () => {
                 <button
                   onClick={closeQuestionModal}
                   className="text-gray-500 hover:text-gray-700"
+                  disabled={isLoading}
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -646,6 +876,7 @@ const ExamsPage = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by text or ID..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isLoading}
                   />
                 </div>
                 <div>
@@ -657,6 +888,7 @@ const ExamsPage = () => {
                     value={difficultyFilter}
                     onChange={(e) => setDifficultyFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isLoading}
                   >
                     <option value="all">All Difficulties</option>
                     <option value="easy">Easy</option>
@@ -674,6 +906,7 @@ const ExamsPage = () => {
                       value={tagFilter}
                       onChange={(e) => setTagFilter(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isLoading}
                     >
                       <option value="all">All Tags</option>
                       {availableTags.map(tag => (
@@ -702,6 +935,7 @@ const ExamsPage = () => {
                           checked={selectedQuestions.includes(question.$id)}
                           onChange={() => handleQuestionSelect(question.$id)}
                           className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          disabled={isLoading}
                         />
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
@@ -744,6 +978,7 @@ const ExamsPage = () => {
                                 value={questionMarks[question.$id] || 1}
                                 onChange={(e) => handleMarksChange(question.$id, e.target.value)}
                                 className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                                disabled={isLoading}
                               />
                             </div>
                           )}
@@ -780,7 +1015,7 @@ const ExamsPage = () => {
                 <div className="mt-6 flex justify-between items-center">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
+                    disabled={currentPage === 1 || isLoading}
                     className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
                   >
                     Previous
@@ -790,7 +1025,7 @@ const ExamsPage = () => {
                   </span>
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage === totalPages || isLoading}
                     className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
                   >
                     Next
@@ -810,7 +1045,7 @@ const ExamsPage = () => {
                 <button
                   onClick={handleSaveQuestions}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  disabled={isLoading}
+                  disabled={isLoading || selectedQuestions.length === 0}
                 >
                   {isLoading ? 'Saving...' : 'Save Questions'}
                 </button>
@@ -837,6 +1072,7 @@ const ExamsPage = () => {
                 <button
                   onClick={closeViewQuestionsModal}
                   className="text-gray-500 hover:text-gray-700"
+                  disabled={isLoading}
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -870,6 +1106,9 @@ const ExamsPage = () => {
                           </span>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
                             Marks: {questionMarks[question.$id] || 1}
+                          </span>
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                            Order: {question.order || "N/A"}
                           </span>
                         </div>
                       </div>
@@ -916,6 +1155,7 @@ const ExamsPage = () => {
                 <button
                   onClick={closeViewQuestionsModal}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                  disabled={isLoading}
                 >
                   Close
                 </button>
@@ -970,7 +1210,7 @@ const ExamsPage = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Duration</h4>
-                  <p className="mt-1 text-gray-800">{selectedExamDetail.duration} minutes</p>
+                  <p className="mt-1 text-gray-800">{formatDuration(selectedExamDetail.duration)}</p>
                 </div>
                 <div className="md:col-span-2">
                   <h4 className="text-sm font-medium text-gray-500">Description</h4>
@@ -978,26 +1218,41 @@ const ExamsPage = () => {
                     {selectedExamDetail.description || "No description provided"}
                   </p>
                 </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Created By</h4>
+                  <p className="mt-1 text-gray-800">{selectedExamDetail.created_by || "Unknown"}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Last Modified</h4>
+                  <p className="mt-1 text-gray-800">{formatDate(selectedExamDetail.modified_at)}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <h4 className="text-sm font-medium text-gray-500">Document ID</h4>
+                  <p className="mt-1 text-gray-800 text-xs break-all">{selectedExamDetail.$id}</p>
+                </div>
               </div>
 
               <div className="mt-8 flex justify-end space-x-3">
                 <button
                   onClick={() => openModal(selectedExamDetail)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  disabled={isLoading}
                 >
-                  Edit Exam
+                  <FiEdit className="mr-1" /> Edit Exam
                 </button>
                 <button
                   onClick={() => deleteExam(selectedExamDetail.$id)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                  disabled={isLoading}
                 >
-                  Delete Exam
+                  <FiTrash2 className="mr-1" /> Delete Exam
                 </button>
                 <button
                   onClick={() => openViewQuestionsModal(selectedExamDetail)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  disabled={isLoading}
                 >
-                  View Questions
+                  <FiEye className="mr-1" /> View Questions
                 </button>
                 <button
                   onClick={closeExamDetails}
