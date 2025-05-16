@@ -1,119 +1,103 @@
-import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
-import { databases, Query } from '../../../utils/appwrite';
-import Link from 'next/link';
+import { databases } from '../../utils/appwrite';
+import { Query } from 'appwrite';
 
-const ResultDetailsPage = () => {
-  const router = useRouter();
-  const { id } = router.query;
-  const [result, setResult] = useState(null);
+const StudentExamResponsesViewer = ({ examId, studentId }) => {
+  const [responses, setResponses] = useState([]);
   const [exam, setExam] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
-  const resultsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID;
-  const examsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
+  const databaseId = '67a5a946002e8a51f8fe';
+  const collectionId = 'responses';
 
-  useEffect(() => {
-    if (!id) return;
-
-    const fetchResultData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Get student session
-        const studentSession = JSON.parse(localStorage.getItem('studentSession'));
-        if (!studentSession) {
-          throw new Error('Student session not found');
-        }
-
-        // Query 1: Get all results and filter client-side (to handle relationship fields)
-        const resultsResponse = await databases.listDocuments(
-          databaseId,
-          resultsCollectionId
-        );
-
-        // Find the result for this exam and student
-        const studentResult = resultsResponse.documents.find(doc => {
-          // Handle both direct ID and relationship object formats
-          const examRef = doc.exam_id;
-          const resolvedExamId = Array.isArray(examRef) 
-            ? examRef[0]?.$id || examRef[0]
-            : typeof examRef === 'object' 
-              ? examRef.$id 
-              : examRef;
-
-          const studentRef = doc.student_id;
-          const resolvedStudentId = Array.isArray(studentRef) 
-            ? studentRef[0]?.$id || studentRef[0]
-            : typeof studentRef === 'object' 
-              ? studentRef.$id 
-              : studentRef;
-
-          return resolvedExamId === id && resolvedStudentId === studentSession.$id;
-        });
-
-        if (!studentResult) {
-          throw new Error('Result not found for this exam');
-        }
-
-        setResult(studentResult);
-
-        // Query 2: Get exam details
-        const examResponse = await databases.listDocuments(
-          databaseId,
-          examsCollectionId,
-          [Query.equal('$id', id)]
-        );
-
-        if (examResponse.total === 0) {
-          throw new Error('Exam not found');
-        }
-
-        setExam(examResponse.documents[0]);
-      } catch (err) {
-        console.error('Error fetching result data:', err);
-        setError(err.message || 'Failed to load result details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResultData();
-  }, [id]);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+  const fetchAllData = async () => {
+    setLoading(true);
     try {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // Fetch exam, student, and responses in parallel
+      const [examRes, studentRes, responsesRes] = await Promise.all([
+        databases.getDocument(databaseId, 'exams', examId),
+        databases.getDocument(databaseId, 'students', studentId),
+        databases.listDocuments(databaseId, collectionId, [
+          Query.equal('exam_id', examId),
+          Query.equal('student_id', studentId),
+          Query.orderAsc('$createdAt')
+        ])
+      ]);
+
+      setExam(examRes);
+      setStudent(studentRes);
+      setResponses(responsesRes.documents);
+
+      // Fetch all questions referenced in responses
+      const questionIds = responsesRes.documents.map(r => 
+        typeof r.question_id === 'object' ? r.question_id.$id : r.question_id
+      ).filter(id => id);
+      
+      if (questionIds.length > 0) {
+        const questionsRes = await databases.listDocuments(databaseId, 'questions', [
+          Query.equal('$id', questionIds)
+        ]);
+        setQuestions(questionsRes.documents);
+      }
+
     } catch (err) {
-      console.error('Error formatting date:', dateString, err);
-      return 'Invalid Date';
+      setError(err.message);
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formatDuration = (minutes) => {
-    if (!minutes) return 'N/A';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const getQuestionById = (questionId) => {
+    if (!questionId) return null;
+    const resolvedId = typeof questionId === 'object' ? questionId.$id : questionId;
+    return questions.find(q => q.$id === resolvedId || q.question_id === resolvedId);
   };
+
+  const getCorrectAnswerText = (question, selectedOption) => {
+    if (!question || !question.options || !Array.isArray(question.options)) return 'N/A';
+    
+    const correctIndex = question.correct_answer;
+    const selectedIndex = parseInt(selectedOption);
+    
+    const correctText = question.options[correctIndex] || 'N/A';
+    const selectedText = question.options[selectedIndex] || 'N/A';
+    
+    return {
+      correctText,
+      selectedText,
+      isCorrect: correctIndex === selectedIndex
+    };
+  };
+
+  const formatDifficulty = (difficulty) => {
+    if (!difficulty) return '';
+    const colors = {
+      easy: 'text-green-600',
+      medium: 'text-yellow-600',
+      hard: 'text-red-600'
+    };
+    return (
+      <span className={`text-xs uppercase font-semibold ${colors[difficulty] || ''}`}>
+        ({difficulty})
+      </span>
+    );
+  };
+
+  useEffect(() => {
+    if (examId && studentId) {
+      fetchAllData();
+    }
+  }, [examId, studentId]);
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="ml-3">Loading result details...</span>
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <p>Loading exam responses...</p>
         </div>
       </div>
     );
@@ -121,128 +105,128 @@ const ResultDetailsPage = () => {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
-          <p className="font-medium">Error:</p>
-          <p className="mt-1">{error}</p>
-          <button
-            onClick={() => router.push('/student/results')}
-            className="mt-3 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
-          >
-            Back to Results
-          </button>
-        </div>
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+        <p>Error loading responses: {error}</p>
       </div>
     );
   }
 
-  if (!result || !exam) {
+  if (!exam || !student) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
-          <p>No result data available</p>
-          <button
-            onClick={() => router.push('/student/results')}
-            className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
-          >
-            Back to Results
-          </button>
-        </div>
+      <div className="text-center py-8">
+        <p>No exam or student data found</p>
       </div>
     );
   }
-
-  const percentage = Math.round((result.score / result.total_marks) * 100);
-  const status = result.status || (percentage >= 30 ? 'passed' : 'failed');
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="mb-6">
-        <Link href="/student/results">
-          <a className="text-blue-600 hover:underline flex items-center">
-            &larr; Back to Results
-          </a>
-        </Link>
-      </div>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">
+        {exam.name} Responses
+      </h1>
 
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Exam Result</h1>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-          status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
-          {status.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Score Summary */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Score Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-800">Your Score</h3>
-            <p className="mt-1 text-3xl font-bold text-blue-600">
-              {result.score}/{result.total_marks}
-            </p>
+      <div className="bg-white rounded-lg shadow mb-6 p-4">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <h3 className="font-semibold text-gray-700">Student:</h3>
+            <p>{student.name} ({student.student_id})</p>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-sm font-medium text-green-800">Percentage</h3>
-            <p className="mt-1 text-3xl font-bold text-green-600">
-              {percentage}%
-            </p>
+          <div>
+            <h3 className="font-semibold text-gray-700">Exam:</h3>
+            <p>{exam.name} ({exam.exam_id})</p>
           </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-800">Submitted At</h3>
-            <p className="mt-1 text-lg text-gray-700">
-              {formatDate(result.completed_at || result.attempted_at)}
-            </p>
-          </div>
+          {exam.exam_date && (
+            <div>
+              <h3 className="font-semibold text-gray-700">Exam Date:</h3>
+              <p>{new Date(exam.exam_date).toLocaleDateString()}</p>
+            </div>
+          )}
+          {exam.duration && (
+            <div>
+              <h3 className="font-semibold text-gray-700">Duration:</h3>
+              <p>{exam.duration} minutes</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Exam Details */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Exam Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Exam Name</h3>
-            <p className="mt-1 text-gray-800">{exam.name}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Exam ID</h3>
-            <p className="mt-1 text-gray-800">{exam.exam_id || exam.$id}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Exam Date</h3>
-            <p className="mt-1 text-gray-800">{formatDate(exam.exam_date)}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Duration</h3>
-            <p className="mt-1 text-gray-800">{formatDuration(exam.duration)}</p>
-          </div>
-          <div className="md:col-span-2">
-            <h3 className="text-sm font-medium text-gray-500">Description</h3>
-            <p className="mt-1 text-gray-800">{exam.description || 'No description available'}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Answers Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Your Answers</h2>
-        {result.answers ? (
-          <div className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
-            <pre className="text-sm">
-              {JSON.stringify(JSON.parse(result.answers), null, 2)}
-            </pre>
+      <div className="space-y-6">
+        {responses.length === 0 ? (
+          <div className="text-center py-8">
+            <p>No responses found for this exam</p>
           </div>
         ) : (
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4">
-            <p>No answer data available for this result</p>
-          </div>
+          responses.map((response, index) => {
+            const question = getQuestionById(response.question_id);
+            const { correctText, selectedText, isCorrect } = getCorrectAnswerText(question, response.selected_option);
+            
+            return (
+              <div key={response.$id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <div className="mr-4 font-semibold text-gray-600">{index + 1}.</div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-medium text-lg mb-2">
+                        {question?.text || `Question ${question?.question_id || 'Unknown'}`}
+                        {question?.difficulty && (
+                          <span className="ml-2">{formatDifficulty(question.difficulty)}</span>
+                        )}
+                      </h3>
+                      {question?.question_id && (
+                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                          QID: {question.question_id}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="ml-4 space-y-2 mt-3">
+                      {question?.options?.map((option, optIndex) => (
+                        <div 
+                          key={optIndex} 
+                          className={`p-2 border rounded ${
+                            optIndex === parseInt(response.selected_option) 
+                              ? isCorrect 
+                                ? 'border-green-500 bg-green-50' 
+                                : 'border-red-500 bg-red-50'
+                              : 'border-gray-200'
+                          } ${
+                            optIndex === question.correct_answer && !isCorrect 
+                              ? 'border-green-500 bg-green-50' 
+                              : ''
+                          }`}
+                        >
+                          {optIndex + 1}. {option}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-semibold">Selected:</span> {response.selected_option + 1}
+                        {selectedText && ` (${selectedText})`}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Correct:</span> {question?.correct_answer + 1 || 'N/A'}
+                        {correctText && ` (${correctText})`}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-semibold">Status:</span> 
+                        <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                          isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {isCorrect ? 'Correct' : 'Incorrect'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
   );
 };
 
-export default ResultDetailsPage;
+export default StudentExamResponsesViewer;

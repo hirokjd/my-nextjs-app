@@ -22,6 +22,7 @@ const ExamTakingPage = () => {
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [showQuestionPalette, setShowQuestionPalette] = useState(false); // Hidden by default
   const [showFullScreenPrompt, setShowFullScreenPrompt] = useState(true);
+  const [examStartTime, setExamStartTime] = useState(null); // Track exam start time
   const router = useRouter();
   const { id: examId } = router.query;
 
@@ -31,6 +32,7 @@ const ExamTakingPage = () => {
   const questionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID;
   const examsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
   const responsesCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID;
+  const resultsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID;
 
   // Log environment variables for debugging
   useEffect(() => {
@@ -41,6 +43,7 @@ const ExamTakingPage = () => {
       examQuestionsCollectionId,
       questionsCollectionId,
       responsesCollectionId,
+      resultsCollectionId,
       endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
       projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
     });
@@ -64,6 +67,15 @@ const ExamTakingPage = () => {
       console.error('Error fetching image:', error.message);
       return null;
     }
+  };
+
+  // Generate result_id (from ResultsTestPage.jsx)
+  const generateResultId = (examId, studentId) => {
+    const shortExamId = examId.substring(0, 10);
+    const shortStudentId = studentId.substring(0, 10);
+    const timestamp = Date.now().toString(36).substring(0, 6);
+    const random = Math.random().toString(36).substring(2, 6);
+    return `res_${shortExamId}_${shortStudentId}_${timestamp}_${random}`.substring(0, 36);
   };
 
   // Security: Disable copy-paste and right-click
@@ -135,13 +147,16 @@ const ExamTakingPage = () => {
       }
 
       // Validate environment variables
-      if (!databaseId || !studentsCollectionId || !examsCollectionId || !examQuestionsCollectionId || !questionsCollectionId || !responsesCollectionId) {
+      if (!databaseId || !studentsCollectionId || !examsCollectionId || !examQuestionsCollectionId || !questionsCollectionId || !responsesCollectionId || !resultsCollectionId) {
         setError('Missing required environment variables. Please contact your administrator.');
         setLoading(false);
         return;
       }
 
       try {
+        // Set exam start time
+        setExamStartTime(new Date().toISOString());
+
         // Validate session
         const session = await getCurrentStudentSession();
         console.log('Session:', session);
@@ -360,7 +375,7 @@ const ExamTakingPage = () => {
                      (typeof qRef === 'object' ? qRef.$id : qRef);
       return qRefId === questionId;
     });
-    return mapping?.marks || 'N/A';
+    return mapping?.marks || 0; // Default to 0 if marks not found
   };
 
   const handleAnswerChange = (questionId, optionIndex) => {
@@ -391,6 +406,32 @@ const ExamTakingPage = () => {
     setCurrentQuestionIndex(index);
   };
 
+  const calculateResult = () => {
+    let score = 0;
+    let total_marks = 0;
+
+    examQuestions.forEach(eq => {
+      const questionId = Array.isArray(eq.question_id) ? eq.question_id[0]?.$id || eq.question_id[0] : 
+                        (typeof eq.question_id === 'object' ? eq.question_id.$id : eq.question_id);
+      const question = getQuestionById(questionId);
+      const marks = parseInt(eq.marks) || 0;
+      total_marks += marks;
+
+      if (question && answers[questionId] !== undefined) {
+        const selectedOption = answers[questionId];
+        const correctOption = question.correct_option; // Assumes question has correct_option
+        if (selectedOption === correctOption) {
+          score += marks;
+        }
+      }
+    });
+
+    const percentage = total_marks > 0 ? (score / total_marks) * 100 : 0;
+    const status = percentage >= 30 ? 'passed' : 'failed';
+
+    return { score, total_marks, percentage, status };
+  };
+
   const handleSubmit = async (autoSubmit = false) => {
     if (!autoSubmit && !confirm('Are you sure you want to submit the exam?')) {
       return;
@@ -398,11 +439,16 @@ const ExamTakingPage = () => {
 
     try {
       // Validate environment variables
-      if (!databaseId || !responsesCollectionId) {
-        throw new Error('Missing required environment variables for submission. Check NEXT_PUBLIC_APPWRITE_DATABASE_ID or NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID.');
+      if (!databaseId || !responsesCollectionId || !resultsCollectionId) {
+        throw new Error('Missing required environment variables for submission. Check NEXT_PUBLIC_APPWRITE_DATABASE_ID, NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID, or NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID.');
       }
 
-      // Create a response document for each answered question
+      // Calculate time taken
+      const endTime = new Date();
+      const startTime = new Date(examStartTime);
+      const timeTakenMinutes = autoSubmit ? (exam.duration || 60) : Math.round((endTime - startTime) / (1000 * 60));
+
+      // Submit responses
       const responsePromises = Object.entries(answers).map(async ([questionId, selectedOption]) => {
         const responseData = {
           response_id: ID.unique(),
@@ -410,7 +456,7 @@ const ExamTakingPage = () => {
           exam_id: examId,
           question_id: questionId,
           selected_option: parseInt(selectedOption),
-          marked_for_review: !!markedForReview[questionId] // Boolean: true if marked, false otherwise
+          marked_for_review: !!markedForReview[questionId]
         };
 
         try {
@@ -428,8 +474,37 @@ const ExamTakingPage = () => {
         }
       });
 
-      // Execute all response submissions
       await Promise.all(responsePromises);
+
+      // Calculate and submit result
+      const { score, total_marks, percentage, status } = calculateResult();
+      const resultId = generateResultId(examId, studentInfo.studentId);
+      const resultData = {
+        result_id: resultId,
+        student_id: studentInfo.studentId,
+        exam_id: examId,
+        score: parseInt(score),
+        total_marks: parseInt(total_marks),
+        percentage: parseFloat(percentage.toFixed(1)),
+        status,
+        time_taken: parseInt(timeTakenMinutes),
+        attempted_at: startTime.toISOString(),
+        completed_at: endTime.toISOString(),
+        created_at: endTime.toISOString()
+      };
+
+      try {
+        const result = await databases.createDocument(
+          databaseId,
+          resultsCollectionId,
+          ID.unique(),
+          resultData
+        );
+        logQuery('Submit Result', { databaseId, collectionId: resultsCollectionId, resultData }, result);
+      } catch (err) {
+        logQuery('Submit Result', { databaseId, collectionId: resultsCollectionId, resultData }, null, err);
+        throw new Error(`Failed to submit result: ${err.message}`);
+      }
 
       router.push('/student/exams?submitted=true');
     } catch (err) {
