@@ -78,6 +78,14 @@ const ExamTakingPage = () => {
     return `res_${shortExamId}_${shortStudentId}_${timestamp}_${random}`.substring(0, 36);
   };
 
+  // Resolve relationship IDs (from ExamQuestionsTestPage.jsx)
+  const resolveRelationshipId = (field) => {
+    if (!field) return null;
+    if (typeof field === 'object' && field.$id) return field.$id;
+    if (Array.isArray(field) && field.length > 0) return field[0]?.$id || field[0];
+    return field;
+  };
+
   // Security: Disable copy-paste and right-click
   useEffect(() => {
     const preventCopyPaste = (e) => {
@@ -271,15 +279,7 @@ const ExamTakingPage = () => {
         setExamQuestions(filteredExamQuestions);
 
         // Query 4: Get questions with images
-        const questionIds = filteredExamQuestions.map(eq => {
-          const questionRef = eq.question_id;
-          if (Array.isArray(questionRef)) {
-            return questionRef[0]?.$id || questionRef[0];
-          } else if (typeof questionRef === 'object' && questionRef !== null) {
-            return questionRef.$id;
-          }
-          return questionRef;
-        }).filter(id => id);
+        const questionIds = filteredExamQuestions.map(eq => resolveRelationshipId(eq.question_id)).filter(id => id);
 
         if (questionIds.length > 0) {
           const questionsQueryParams = {
@@ -361,8 +361,7 @@ const ExamTakingPage = () => {
   const getQuestionOrder = (questionId) => {
     const mapping = examQuestions.find(eq => {
       const qRef = eq.question_id;
-      const refId = Array.isArray(qRef) ? qRef[0]?.$id || qRef[0] : 
-                   (typeof qRef === 'object' ? qRef.$id : qRef);
+      const refId = resolveRelationshipId(qRef);
       return refId === questionId;
     });
     return mapping?.order || 'N/A';
@@ -371,8 +370,7 @@ const ExamTakingPage = () => {
   const getQuestionMarks = (questionId) => {
     const mapping = examQuestions.find(eq => {
       const qRef = eq.question_id;
-      const qRefId = Array.isArray(qRef) ? qRef[0]?.$id || qRef[0] : 
-                     (typeof qRef === 'object' ? qRef.$id : qRef);
+      const qRefId = resolveRelationshipId(qRef);
       return qRefId === questionId;
     });
     return mapping?.marks || 0; // Default to 0 if marks not found
@@ -410,24 +408,53 @@ const ExamTakingPage = () => {
     let score = 0;
     let total_marks = 0;
 
+    console.group('Result Calculation Debug');
+    console.log('Exam Questions:', examQuestions.map(eq => ({
+      $id: eq.$id,
+      question_id: resolveRelationshipId(eq.question_id),
+      marks: eq.marks,
+      order: eq.order
+    })));
+    console.log('Questions:', questions.map(q => ({
+      $id: q.$id,
+      question_id: q.question_id,
+      text: q.text?.substring(0, 50),
+      correct_option: q.correct_option
+    })));
+    console.log('Answers:', answers);
+
     examQuestions.forEach(eq => {
-      const questionId = Array.isArray(eq.question_id) ? eq.question_id[0]?.$id || eq.question_id[0] : 
-                        (typeof eq.question_id === 'object' ? eq.question_id.$id : eq.question_id);
+      const questionId = resolveRelationshipId(eq.question_id);
       const question = getQuestionById(questionId);
       const marks = parseInt(eq.marks) || 0;
       total_marks += marks;
 
       if (question && answers[questionId] !== undefined) {
-        const selectedOption = answers[questionId];
-        const correctOption = question.correct_option; // Assumes question has correct_option
-        if (selectedOption === correctOption) {
+        const selectedOption = parseInt(answers[questionId]);
+        const correctOption = question.correct_option !== undefined ? parseInt(question.correct_option) : null;
+
+        console.log(`Question ${questionId}:`, {
+          selectedOption,
+          correctOption,
+          marks,
+          hasCorrectOption: correctOption !== null
+        });
+
+        if (correctOption !== null && selectedOption === correctOption) {
           score += marks;
+        } else if (correctOption === null) {
+          console.warn(`Question ${questionId} missing correct_option, awarding 0 marks`);
         }
+      } else {
+        console.log(`Question ${questionId}: No answer or question not found`);
       }
     });
 
     const percentage = total_marks > 0 ? (score / total_marks) * 100 : 0;
     const status = percentage >= 30 ? 'passed' : 'failed';
+
+    console.log('Final Result:', { score, total_marks, percentage: percentage.toFixed(1), status });
+    console.groupEnd();
 
     return { score, total_marks, percentage, status };
   };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { databases } from '../../utils/appwrite';
+import { databases } from '../../../utils/appwrite';
 import { Query } from 'appwrite';
 
 const StudentExamResponsesViewer = ({ examId, studentId }) => {
