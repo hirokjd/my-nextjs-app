@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { databases, storage, Query } from '../../../utils/appwrite';
+import { databases, storage, Query, ID } from '../../../utils/appwrite';
 import { getCurrentStudentSession } from '../../../utils/auth';
 import { useRouter } from 'next/router';
 
@@ -30,7 +30,7 @@ const ExamTakingPage = () => {
   const examQuestionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAM_QUESTIONS_COLLECTION_ID;
   const questionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_QUESTIONS_COLLECTION_ID;
   const examsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID;
-  const submissionsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_SUBMISSIONS_COLLECTION_ID;
+  const responsesCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID;
 
   // Log environment variables for debugging
   useEffect(() => {
@@ -40,7 +40,7 @@ const ExamTakingPage = () => {
       examsCollectionId,
       examQuestionsCollectionId,
       questionsCollectionId,
-      submissionsCollectionId,
+      responsesCollectionId,
       endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
       projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
     });
@@ -88,7 +88,7 @@ const ExamTakingPage = () => {
     };
   }, []);
 
-  // Security: Detect tab switch
+  // Security: Detect tab switch (frontend warning only)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -135,7 +135,7 @@ const ExamTakingPage = () => {
       }
 
       // Validate environment variables
-      if (!databaseId || !studentsCollectionId || !examsCollectionId || !examQuestionsCollectionId || !questionsCollectionId || !submissionsCollectionId) {
+      if (!databaseId || !studentsCollectionId || !examsCollectionId || !examQuestionsCollectionId || !questionsCollectionId || !responsesCollectionId) {
         setError('Missing required environment variables. Please contact your administrator.');
         setLoading(false);
         return;
@@ -287,7 +287,7 @@ const ExamTakingPage = () => {
           } catch (err) {
             logQuery('Get Questions', questionsQueryParams, null, err);
             throw new Error(`Questions query failed: ${err.message}. Check permissions for questions collection.`);
-        }
+          }
 
           const updatedQuestions = await Promise.all(
             questionsResponse.documents
@@ -397,32 +397,39 @@ const ExamTakingPage = () => {
     }
 
     try {
-      const submission = {
-        student_id: studentInfo.studentId,
-        exam_id: examId,
-        answers: JSON.stringify(answers),
-        marked_for_review: JSON.stringify(markedForReview),
-        submitted_at: new Date().toISOString(),
-        tab_switch_count: tabSwitchCount
-      };
-
-      // Validate environment variables for submission
-      if (!databaseId || !submissionsCollectionId) {
-        throw new Error('Missing required environment variables for submission. Check NEXT_PUBLIC_APPWRITE_DATABASE_ID and NEXT_PUBLIC_APPWRITE_SUBMISSIONS_COLLECTION_ID.');
+      // Validate environment variables
+      if (!databaseId || !responsesCollectionId) {
+        throw new Error('Missing required environment variables for submission. Check NEXT_PUBLIC_APPWRITE_DATABASE_ID or NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID.');
       }
 
-      try {
-        await databases.createDocument(
-          databaseId,
-          submissionsCollectionId,
-          'unique()',
-          submission
-        );
-        logQuery('Submit Exam', { databaseId, collectionId: submissionsCollectionId }, submission);
-      } catch (err) {
-        logQuery('Submit Exam', { databaseId, collectionId: submissionsCollectionId }, null, err);
-        throw new Error(`Submission failed: ${err.message}. Check permissions for submissions collection.`);
-      }
+      // Create a response document for each answered question
+      const responsePromises = Object.entries(answers).map(async ([questionId, selectedOption]) => {
+        const responseData = {
+          response_id: ID.unique(),
+          student_id: studentInfo.studentId,
+          exam_id: examId,
+          question_id: questionId,
+          selected_option: parseInt(selectedOption),
+          marked_for_review: !!markedForReview[questionId] // Boolean: true if marked, false otherwise
+        };
+
+        try {
+          const response = await databases.createDocument(
+            databaseId,
+            responsesCollectionId,
+            ID.unique(),
+            responseData
+          );
+          logQuery('Submit Response', { databaseId, collectionId: responsesCollectionId, responseData }, response);
+          return response;
+        } catch (err) {
+          logQuery('Submit Response', { databaseId, collectionId: responsesCollectionId, responseData }, null, err);
+          throw new Error(`Failed to submit response for question ${questionId}: ${err.message}`);
+        }
+      });
+
+      // Execute all response submissions
+      await Promise.all(responsePromises);
 
       router.push('/student/exams?submitted=true');
     } catch (err) {
@@ -535,9 +542,6 @@ const ExamTakingPage = () => {
         <div className="text-right">
           <p className="text-sm font-medium text-red-600">
             Time Remaining: {formatTime(timeRemaining)}
-          </p>
-          <p className="text-sm text-gray-600 mt-1">
-            Tab Switches: {tabSwitchCount}/{MAX_TAB_SWITCHES}
           </p>
         </div>
       </div>
