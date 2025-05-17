@@ -20,9 +20,9 @@ const ExamTakingPage = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [showQuestionPalette, setShowQuestionPalette] = useState(false); // Hidden by default
+  const [showQuestionPalette, setShowQuestionPalette] = useState(false);
   const [showFullScreenPrompt, setShowFullScreenPrompt] = useState(true);
-  const [examStartTime, setExamStartTime] = useState(null); // Track exam start time
+  const [examStartTime, setExamStartTime] = useState(null);
   const router = useRouter();
   const { id: examId } = router.query;
 
@@ -34,7 +34,6 @@ const ExamTakingPage = () => {
   const responsesCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID;
   const resultsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID;
 
-  // Log environment variables for debugging
   useEffect(() => {
     console.log('Environment Variables:', {
       databaseId,
@@ -69,7 +68,6 @@ const ExamTakingPage = () => {
     }
   };
 
-  // Generate result_id (from ResultsTestPage.jsx)
   const generateResultId = (examId, studentId) => {
     const shortExamId = examId.substring(0, 10);
     const shortStudentId = studentId.substring(0, 10);
@@ -78,7 +76,6 @@ const ExamTakingPage = () => {
     return `res_${shortExamId}_${shortStudentId}_${timestamp}_${random}`.substring(0, 36);
   };
 
-  // Resolve relationship IDs (from ExamQuestionsTestPage.jsx)
   const resolveRelationshipId = (field) => {
     if (!field) return null;
     if (typeof field === 'object' && field.$id) return field.$id;
@@ -86,7 +83,6 @@ const ExamTakingPage = () => {
     return field;
   };
 
-  // Security: Disable copy-paste and right-click
   useEffect(() => {
     const preventCopyPaste = (e) => {
       e.preventDefault();
@@ -108,7 +104,6 @@ const ExamTakingPage = () => {
     };
   }, []);
 
-  // Security: Detect tab switch (frontend warning only)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -128,7 +123,6 @@ const ExamTakingPage = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Full-screen handling
   const toggleFullScreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement) {
@@ -145,7 +139,6 @@ const ExamTakingPage = () => {
     setShowFullScreenPrompt(false);
   }, []);
 
-  // Fetch exam data
   useEffect(() => {
     const fetchExamData = async () => {
       if (!examId) {
@@ -154,7 +147,6 @@ const ExamTakingPage = () => {
         return;
       }
 
-      // Validate environment variables
       if (!databaseId || !studentsCollectionId || !examsCollectionId || !examQuestionsCollectionId || !questionsCollectionId || !responsesCollectionId || !resultsCollectionId) {
         setError('Missing required environment variables. Please contact your administrator.');
         setLoading(false);
@@ -162,10 +154,7 @@ const ExamTakingPage = () => {
       }
 
       try {
-        // Set exam start time
         setExamStartTime(new Date().toISOString());
-
-        // Validate session
         const session = await getCurrentStudentSession();
         console.log('Session:', session);
         if (!session?.email) {
@@ -174,7 +163,6 @@ const ExamTakingPage = () => {
           return;
         }
 
-        // Query 1: Get student by email
         const studentQueryParams = {
           databaseId,
           collectionId: studentsCollectionId,
@@ -212,7 +200,6 @@ const ExamTakingPage = () => {
           studentId: student.$id,
         });
 
-        // Query 2: Get exam details
         const examQueryParams = {
           databaseId,
           collectionId: examsCollectionId,
@@ -243,7 +230,6 @@ const ExamTakingPage = () => {
         setExam(examData);
         setTimeRemaining(examData.duration * 60);
 
-        // Query 3: Get exam questions
         const examQuestionsQueryParams = {
           databaseId,
           collectionId: examQuestionsCollectionId,
@@ -278,7 +264,6 @@ const ExamTakingPage = () => {
 
         setExamQuestions(filteredExamQuestions);
 
-        // Query 4: Get questions with images
         const questionIds = filteredExamQuestions.map(eq => resolveRelationshipId(eq.question_id)).filter(id => id);
 
         if (questionIds.length > 0) {
@@ -335,7 +320,6 @@ const ExamTakingPage = () => {
     fetchExamData();
   }, [examId, router]);
 
-  // Timer effect
   useEffect(() => {
     if (timeRemaining === null || timeRemaining <= 0) return;
 
@@ -373,7 +357,7 @@ const ExamTakingPage = () => {
       const qRefId = resolveRelationshipId(qRef);
       return qRefId === questionId;
     });
-    return mapping?.marks || 0; // Default to 0 if marks not found
+    return mapping?.marks || 0;
   };
 
   const handleAnswerChange = (questionId, optionIndex) => {
@@ -404,7 +388,7 @@ const ExamTakingPage = () => {
     setCurrentQuestionIndex(index);
   };
 
-  const calculateResult = () => {
+  const calculateResult = async () => {
     let score = 0;
     let total_marks = 0;
 
@@ -419,19 +403,20 @@ const ExamTakingPage = () => {
       $id: q.$id,
       question_id: q.question_id,
       text: q.text?.substring(0, 50),
-      correct_option: q.correct_option
+      correct_answer: q.correct_answer
     })));
     console.log('Answers:', answers);
 
-    examQuestions.forEach(eq => {
+    // Calculate total marks from exam_questions
+    for (const eq of examQuestions) {
       const questionId = resolveRelationshipId(eq.question_id);
-      const question = getQuestionById(questionId);
       const marks = parseInt(eq.marks) || 0;
       total_marks += marks;
 
+      const question = getQuestionById(questionId);
       if (question && answers[questionId] !== undefined) {
         const selectedOption = parseInt(answers[questionId]);
-        const correctOption = question.correct_option !== undefined ? parseInt(question.correct_option) : null;
+        const correctOption = question.correct_answer !== undefined ? parseInt(question.correct_answer) : null;
 
         console.log(`Question ${questionId}:`, {
           selectedOption,
@@ -443,12 +428,12 @@ const ExamTakingPage = () => {
         if (correctOption !== null && selectedOption === correctOption) {
           score += marks;
         } else if (correctOption === null) {
-          console.warn(`Question ${questionId} missing correct_option, awarding 0 marks`);
+          console.warn(`Question ${questionId} missing correct_answer, awarding 0 marks`);
         }
       } else {
         console.log(`Question ${questionId}: No answer or question not found`);
       }
-    });
+    }
 
     const percentage = total_marks > 0 ? (score / total_marks) * 100 : 0;
     const status = percentage >= 30 ? 'passed' : 'failed';
@@ -465,12 +450,10 @@ const ExamTakingPage = () => {
     }
 
     try {
-      // Validate environment variables
       if (!databaseId || !responsesCollectionId || !resultsCollectionId) {
-        throw new Error('Missing required environment variables for submission. Check NEXT_PUBLIC_APPWRITE_DATABASE_ID, NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID, or NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID.');
+        throw new Error('Missing required environment variables for submission.');
       }
 
-      // Calculate time taken
       const endTime = new Date();
       const startTime = new Date(examStartTime);
       const timeTakenMinutes = autoSubmit ? (exam.duration || 60) : Math.round((endTime - startTime) / (1000 * 60));
@@ -482,8 +465,7 @@ const ExamTakingPage = () => {
           student_id: studentInfo.studentId,
           exam_id: examId,
           question_id: questionId,
-          selected_option: parseInt(selectedOption),
-          marked_for_review: !!markedForReview[questionId]
+          selected_option: parseInt(selectedOption)
         };
 
         try {
@@ -504,7 +486,7 @@ const ExamTakingPage = () => {
       await Promise.all(responsePromises);
 
       // Calculate and submit result
-      const { score, total_marks, percentage, status } = calculateResult();
+      const { score, total_marks, percentage, status } = await calculateResult();
       const resultId = generateResultId(examId, studentInfo.studentId);
       const resultData = {
         result_id: resultId,
@@ -604,7 +586,6 @@ const ExamTakingPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 select-none">
-      {/* Full-Screen Prompt */}
       {showFullScreenPrompt && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-96">
@@ -630,7 +611,6 @@ const ExamTakingPage = () => {
         </div>
       )}
 
-      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{exam.name}</h1>
@@ -648,7 +628,6 @@ const ExamTakingPage = () => {
         </div>
       </div>
 
-      {/* Progress Bar */}
       <div className="mb-6">
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div
@@ -661,7 +640,6 @@ const ExamTakingPage = () => {
         </p>
       </div>
 
-      {/* Main Content */}
       <div className="flex gap-6">
         <div className="flex-1">
           <div className="bg-white p-6 rounded-lg shadow">
@@ -703,16 +681,11 @@ const ExamTakingPage = () => {
                               Difficulty: {currentQuestion.difficulty}
                             </span>
                           )}
-                          {currentQuestion.topic && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
-                              Topic: {currentQuestion.topic}
+                          {currentQuestion.tags && Array.isArray(currentQuestion.tags) && currentQuestion.tags.map((tag, index) => (
+                            <span key={index} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                              Tag: {tag}
                             </span>
-                          )}
-                          {currentQuestion.type && (
-                            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-                              Type: {currentQuestion.type}
-                            </span>
-                          )}
+                          ))}
                         </div>
                       </div>
                       <div className="flex flex-col items-end space-y-1">
@@ -866,7 +839,6 @@ const ExamTakingPage = () => {
         )}
       </div>
 
-      {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-96">
