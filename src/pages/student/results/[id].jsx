@@ -14,6 +14,8 @@ const ExamResponsesPage = () => {
   const [studentInfo, setStudentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [examQuestions, setExamQuestions] = useState([]);
+  const [calculatedResult, setCalculatedResult] = useState(null);
   const router = useRouter();
   const { id: examIdRaw } = router.query;
 
@@ -30,34 +32,14 @@ const ExamResponsesPage = () => {
   const responsesCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID;
   const resultsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID;
 
-  // Log environment variables and router query for debugging
-  useEffect(() => {
-    console.log('Environment Variables:', {
-      databaseId,
-      studentsCollectionId,
-      examsCollectionId,
-      examQuestionsCollectionId,
-      questionsCollectionId,
-      responsesCollectionId,
-      resultsCollectionId,
-      endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-      projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID,
-    });
-    console.log('Router Query:', router.query);
-    console.log('Raw Exam ID:', examIdRaw);
-    console.log('Normalized Exam ID:', examId);
-  }, [examIdRaw, router.query]);
-
-  // Helper to log Appwrite queries
-  const logQuery = (queryName, params, result, error = null) => {
-    console.groupCollapsed(`Query: ${queryName}`);
-    console.log('Params:', params);
-    if (error) {
-      console.error('Error:', error.message, 'Code:', error.code, 'Type:', error.type);
-    } else {
-      console.log('Result:', result);
-    }
-    console.groupEnd();
+  // Helper to resolve relationship IDs
+  const resolveRelationshipId = (field) => {
+    if (!field) return null;
+    if (typeof field === 'object' && field?.$id) return field.$id;
+    if (Array.isArray(field) && field.length > 0) return field[0]?.$id || field[0];
+    if (typeof field === 'string') return field;
+    console.warn('Unexpected relationship field format:', field);
+    return null;
   };
 
   // Fetch image URL from Appwrite storage
@@ -70,18 +52,8 @@ const ExamResponsesPage = () => {
     }
   };
 
-  // Resolve Appwrite relationship IDs
-  const resolveRelationshipId = (field) => {
-    if (!field) return null;
-    if (typeof field === 'object' && field?.$id) return field.$id;
-    if (Array.isArray(field) && field.length > 0) return field[0]?.$id || field[0];
-    if (typeof field === 'string') return field;
-    console.warn('Unexpected relationship field format:', field);
-    return null;
-  };
-
   // Fetch question order from exam_questions
-  const getQuestionOrder = (questionId, examQuestions) => {
+  const getQuestionOrder = (questionId) => {
     const mapping = examQuestions.find(eq => {
       const qRef = eq.question_id;
       const refId = resolveRelationshipId(qRef);
@@ -91,7 +63,7 @@ const ExamResponsesPage = () => {
   };
 
   // Fetch question marks from exam_questions
-  const getQuestionMarks = (questionId, examQuestions) => {
+  const getQuestionMarks = (questionId) => {
     const mapping = examQuestions.find(eq => {
       const qRef = eq.question_id;
       const refId = resolveRelationshipId(qRef);
@@ -100,8 +72,70 @@ const ExamResponsesPage = () => {
     return mapping?.marks || 0;
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (err) {
+      console.error('Error formatting date:', dateString, err);
+      return 'Invalid Date';
+    }
+  };
+
+  // Format duration for display
+  const formatDuration = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
+
+  // Calculate result based on responses and questions
+  const calculateResult = () => {
+    let score = 0;
+    let totalMarks = 0;
+
+    // Calculate total possible marks and actual score
+    examQuestions.forEach(eq => {
+      const questionId = resolveRelationshipId(eq.question_id);
+      const marks = parseInt(eq.marks) || 0;
+      totalMarks += marks;
+
+      const question = questions.find(q => q.$id === questionId);
+      const response = responses.find(r => resolveRelationshipId(r.question_id) === questionId);
+
+      if (question && response) {
+        const selectedOption = parseInt(response.selected_option);
+        const correctOption = question.correct_answer !== undefined ? parseInt(question.correct_answer) : null;
+
+        if (correctOption !== null && selectedOption === correctOption) {
+          score += marks;
+        }
+      }
+    });
+
+    const percentage = totalMarks > 0 ? (score / totalMarks) * 100 : 0;
+    const status = result?.status || (percentage >= 30 ? 'passed' : 'failed');
+
+    return {
+      score,
+      total_marks: totalMarks,
+      percentage: parseFloat(percentage.toFixed(1)),
+      status,
+      time_taken: result?.time_taken || 0,
+      attempted_at: result?.attempted_at || new Date().toISOString(),
+      completed_at: result?.completed_at || new Date().toISOString()
+    };
+  };
+
   // Fetch exam responses and related data
-  const [examQuestions, setExamQuestions] = useState([]);
   useEffect(() => {
     let timeoutId;
     const fetchResponseData = async () => {
@@ -139,7 +173,6 @@ const ExamResponsesPage = () => {
       try {
         // Validate session
         const session = await getCurrentStudentSession();
-        console.log('Session:', session);
         if (!session?.email) {
           clearTimeout(timeoutId);
           console.warn('No valid session found, redirecting to login');
@@ -148,31 +181,11 @@ const ExamResponsesPage = () => {
         }
 
         // Query 1: Fetch student by email
-        const studentQueryParams = {
+        const studentResponse = await databases.listDocuments(
           databaseId,
-          collectionId: studentsCollectionId,
-          queries: [Query.equal('email', session.email)],
-        };
-
-        let studentResponse;
-        try {
-          studentResponse = await databases.listDocuments(
-            studentQueryParams.databaseId,
-            studentQueryParams.collectionId,
-            studentQueryParams.queries
-          );
-          logQuery('Get Student by Email', studentQueryParams, {
-            total: studentResponse.total,
-            documents: studentResponse.documents.map((d) => ({
-              $id: d.$id,
-              name: d.name,
-              email: d.email,
-            })),
-          });
-        } catch (err) {
-          logQuery('Get Student by Email', studentQueryParams, null, err);
-          throw new Error(`Student query failed: ${err.message}. Check permissions for students collection.`);
-        }
+          studentsCollectionId,
+          [Query.equal('email', session.email)]
+        );
 
         if (studentResponse.total === 0) {
           throw new Error('Student record not found');
@@ -186,27 +199,11 @@ const ExamResponsesPage = () => {
         });
 
         // Query 2: Fetch exam details
-        const examQueryParams = {
+        const examResponse = await databases.listDocuments(
           databaseId,
-          collectionId: examsCollectionId,
-          queries: [Query.equal('$id', examId)],
-        };
-
-        let examResponse;
-        try {
-          examResponse = await databases.listDocuments(
-            examQueryParams.databaseId,
-            examQueryParams.collectionId,
-            examQueryParams.queries
-          );
-          logQuery('Get Exam', examQueryParams, {
-            total: examResponse.total,
-            documents: examResponse.documents,
-          });
-        } catch (err) {
-          logQuery('Get Exam', examQueryParams, null, err);
-          throw new Error(`Exam query failed: ${err.message}. Check permissions for exams collection or verify exam ID: ${examId}`);
-        }
+          examsCollectionId,
+          [Query.equal('$id', examId)]
+        );
 
         if (examResponse.total === 0) {
           throw new Error(`Exam with ID ${examId} not found. Please check if the exam exists.`);
@@ -215,65 +212,29 @@ const ExamResponsesPage = () => {
         setExam(examResponse.documents[0]);
 
         // Query 3: Fetch exam questions
-        const examQuestionsQueryParams = {
+        const examQuestionsResponse = await databases.listDocuments(
           databaseId,
-          collectionId: examQuestionsCollectionId,
-          queries: [Query.orderAsc('order')],
-        };
-
-        let examQuestionsResponse;
-        try {
-          examQuestionsResponse = await databases.listDocuments(
-            examQuestionsQueryParams.databaseId,
-            examQuestionsQueryParams.collectionId,
-            examQuestionsQueryParams.queries
-          );
-          logQuery('Get Exam Questions', examQuestionsQueryParams, {
-            total: examQuestionsResponse.total,
-            documents: examQuestionsResponse.documents,
-          });
-        } catch (err) {
-          logQuery('Get Exam Questions', examQuestionsQueryParams, null, err);
-          throw new Error(`Exam questions query failed: ${err.message}. Check permissions for exam_questions collection.`);
-        }
+          examQuestionsCollectionId,
+          [Query.orderAsc('order')]
+        );
 
         const filteredExamQuestions = examQuestionsResponse.documents.filter(doc => {
           const examRef = doc.exam_id;
-          if (Array.isArray(examRef)) {
-            return examRef.some(ref => ref.$id === examId || ref === examId);
-          } else if (typeof examRef === 'object' && examRef !== null) {
-            return examRef.$id === examId;
-          }
-          return examRef === examId;
+          const refId = resolveRelationshipId(examRef);
+          return refId === examId;
         });
 
         setExamQuestions(filteredExamQuestions);
 
         // Query 4: Fetch student responses
-        const responsesQueryParams = {
+        const responsesResponse = await databases.listDocuments(
           databaseId,
-          collectionId: responsesCollectionId,
-          queries: [
+          responsesCollectionId,
+          [
             Query.equal('student_id', student.$id),
             Query.equal('exam_id', examId),
-          ],
-        };
-
-        let responsesResponse;
-        try {
-          responsesResponse = await databases.listDocuments(
-            responsesQueryParams.databaseId,
-            responsesQueryParams.collectionId,
-            responsesQueryParams.queries
-          );
-          logQuery('Get Responses', responsesQueryParams, {
-            total: responsesResponse.total,
-            documents: responsesResponse.documents,
-          });
-        } catch (err) {
-          logQuery('Get Responses', responsesQueryParams, null, err);
-          throw new Error(`Responses query failed: ${err.message}. Check permissions for responses collection.`);
-        }
+          ]
+        );
 
         setResponses(responsesResponse.documents);
 
@@ -283,27 +244,11 @@ const ExamResponsesPage = () => {
           .filter((id) => id);
 
         if (questionIds.length > 0) {
-          const questionsQueryParams = {
+          const questionsResponse = await databases.listDocuments(
             databaseId,
-            collectionId: questionsCollectionId,
-            queries: [Query.contains('$id', questionIds), Query.limit(100)],
-          };
-
-          let questionsResponse;
-          try {
-            questionsResponse = await databases.listDocuments(
-              questionsQueryParams.databaseId,
-              questionsQueryParams.collectionId,
-              questionsQueryParams.queries
-            );
-            logQuery('Get Questions', questionsQueryParams, {
-              total: questionsResponse.total,
-              documents: questionsResponse.documents,
-            });
-          } catch (err) {
-            logQuery('Get Questions', questionsQueryParams, null, err);
-            throw new Error(`Questions query failed: ${err.message}. Check permissions for questions collection.`);
-          }
+            questionsCollectionId,
+            [Query.contains('$id', questionIds), Query.limit(100)]
+          );
 
           const updatedQuestions = await Promise.all(
             questionsResponse.documents.map(async (q) => ({
@@ -318,35 +263,18 @@ const ExamResponsesPage = () => {
           setQuestions(updatedQuestions);
         }
 
-        // Query 6: Fetch result
-        const resultQueryParams = {
+        // Query 6: Fetch result from database
+        const resultResponse = await databases.listDocuments(
           databaseId,
-          collectionId: resultsCollectionId,
-          queries: [
+          resultsCollectionId,
+          [
             Query.equal('student_id', student.$id),
             Query.equal('exam_id', examId),
-          ],
-        };
-
-        let resultResponse;
-        try {
-          resultResponse = await databases.listDocuments(
-            resultQueryParams.databaseId,
-            resultQueryParams.collectionId,
-            resultQueryParams.queries
-          );
-          logQuery('Get Result', resultQueryParams, {
-            total: resultResponse.total,
-            documents: resultResponse.documents,
-          });
-        } catch (err) {
-          logQuery('Get Result', resultQueryParams, null, err);
-          throw new Error(`Result query failed: ${err.message}. Check permissions for results collection.`);
-        }
+          ]
+        );
 
         if (resultResponse.total > 0) {
           setResult(resultResponse.documents[0]);
-          console.log('Result Document:', resultResponse.documents[0]);
         } else {
           console.warn('No result found for student_id:', student.$id, 'and exam_id:', examId);
           setResult(null);
@@ -367,10 +295,15 @@ const ExamResponsesPage = () => {
     };
 
     fetchResponseData();
-
-    // Cleanup timeout on unmount
-    return () => clearTimeout(timeoutId);
   }, [examId, router]);
+
+  // Calculate the result whenever questions, responses, or examQuestions change
+  useEffect(() => {
+    if (questions.length > 0 && responses.length > 0 && examQuestions.length > 0) {
+      const calculated = calculateResult();
+      setCalculatedResult(calculated);
+    }
+  }, [questions, responses, examQuestions, result]);
 
   if (loading) {
     return (
@@ -417,6 +350,9 @@ const ExamResponsesPage = () => {
     );
   }
 
+  // Use calculated result if available, otherwise fall back to stored result
+  const displayResult = calculatedResult || result;
+
   return (
     <div className="container mx-auto px-4 py-6 select-none">
       {/* Header */}
@@ -438,34 +374,36 @@ const ExamResponsesPage = () => {
       {/* Result Summary */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Result Summary</h2>
-        {result ? (
+        {displayResult ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-gray-600">Score</p>
-              <p className="text-lg font-semibold">{result.score}/{result.total_marks}</p>
+              <p className="text-lg font-semibold">{displayResult.score}/{displayResult.total_marks}</p>
             </div>
             <div className="p-4 bg-green-50 rounded-lg">
               <p className="text-sm text-gray-600">Percentage</p>
-              <p className="text-lg font-semibold">{result.percentage.toFixed(1)}%</p>
+              <p className="text-lg font-semibold">{displayResult.percentage}%</p>
             </div>
-            <div className="p-4 bg-yellow-50 rounded-lg">
+            <div className={`p-4 rounded-lg ${
+              displayResult.status === 'passed' ? 'bg-green-50' : 'bg-red-50'
+            }`}>
               <p className="text-sm text-gray-600">Status</p>
-              <p className="text-lg font-semibold capitalize">{result.status}</p>
+              <p className="text-lg font-semibold capitalize">{displayResult.status}</p>
             </div>
             <div className="p-4 bg-purple-50 rounded-lg">
               <p className="text-sm text-gray-600">Time Taken</p>
-              <p className="text-lg font-semibold">{result.time_taken} minutes</p>
+              <p className="text-lg font-semibold">{formatDuration(displayResult.time_taken)}</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">Attempted At</p>
               <p className="text-lg font-semibold">
-                {new Date(result.attempted_at).toLocaleString()}
+                {formatDate(displayResult.attempted_at)}
               </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">Completed At</p>
               <p className="text-lg font-semibold">
-                {new Date(result.completed_at).toLocaleString()}
+                {formatDate(displayResult.completed_at)}
               </p>
             </div>
           </div>
@@ -485,7 +423,7 @@ const ExamResponsesPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {responses.map((response, index) => {
+            {responses.map((response) => {
               const questionId = resolveRelationshipId(response.question_id);
               const question = questions.find((q) => q.$id === questionId);
               if (!question) {
@@ -497,12 +435,15 @@ const ExamResponsesPage = () => {
               }
 
               const isCorrect = parseInt(response.selected_option) === parseInt(question.correct_answer);
+              const questionMarks = getQuestionMarks(questionId);
+              const questionOrder = getQuestionOrder(questionId);
+
               return (
                 <div key={response.$id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-medium text-lg">
-                        Question {getQuestionOrder(question.$id, examQuestions)} (Marks: {getQuestionMarks(question.$id, examQuestions)})
+                        Question {questionOrder} (Marks: {questionMarks})
                       </h3>
                       {question.text && (
                         <p className="text-gray-700 mt-2">{question.text}</p>
@@ -545,6 +486,11 @@ const ExamResponsesPage = () => {
                       >
                         {isCorrect ? 'Correct' : 'Incorrect'}
                       </span>
+                      {isCorrect && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          +{questionMarks} marks
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
