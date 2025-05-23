@@ -20,8 +20,6 @@ const ExamTakingPage = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [showQuestionPalette, setShowQuestionPalette] = useState(false);
-  const [showFullScreenPrompt, setShowFullScreenPrompt] = useState(true);
   const [examStartTime, setExamStartTime] = useState(null);
   const router = useRouter();
   const { id: examId } = router.query;
@@ -136,7 +134,6 @@ const ExamTakingPage = () => {
       console.error('Full-screen error:', err.message);
       setError('Failed to toggle full-screen mode. Please try again or continue without full-screen.');
     }
-    setShowFullScreenPrompt(false);
   }, []);
 
   useEffect(() => {
@@ -342,15 +339,6 @@ const ExamTakingPage = () => {
            questions.find(q => q.question_id === questionId);
   };
 
-  const getQuestionOrder = (questionId) => {
-    const mapping = examQuestions.find(eq => {
-      const qRef = eq.question_id;
-      const refId = resolveRelationshipId(qRef);
-      return refId === questionId;
-    });
-    return mapping?.order || 'N/A';
-  };
-
   const getQuestionMarks = (questionId) => {
     const mapping = examQuestions.find(eq => {
       const qRef = eq.question_id;
@@ -407,7 +395,6 @@ const ExamTakingPage = () => {
     })));
     console.log('Answers:', answers);
 
-    // Calculate total marks from exam_questions
     for (const eq of examQuestions) {
       const questionId = resolveRelationshipId(eq.question_id);
       const marks = parseInt(eq.marks) || 0;
@@ -458,7 +445,6 @@ const ExamTakingPage = () => {
       const startTime = new Date(examStartTime);
       const timeTakenMinutes = autoSubmit ? (exam.duration || 60) : Math.round((endTime - startTime) / (1000 * 60));
 
-      // Submit responses
       const responsePromises = Object.entries(answers).map(async ([questionId, selectedOption]) => {
         const responseData = {
           response_id: ID.unique(),
@@ -485,7 +471,6 @@ const ExamTakingPage = () => {
 
       await Promise.all(responsePromises);
 
-      // Calculate and submit result
       const { score, total_marks, percentage, status } = await calculateResult();
       const resultId = generateResultId(examId, studentInfo.studentId);
       const resultData = {
@@ -586,25 +571,28 @@ const ExamTakingPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 select-none">
-      {showFullScreenPrompt && (
+      {showSubmitConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-            <h3 className="text-lg font-semibold mb-4">Enter Full-Screen Mode</h3>
+            <h3 className="text-lg font-semibold mb-4">Confirm Submission</h3>
             <p className="text-gray-600 mb-6">
-              This exam requires full-screen mode for security. Click below to proceed.
+              Are you sure you want to submit the exam? You cannot make changes after submission.
             </p>
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowFullScreenPrompt(false)}
+                onClick={() => setShowSubmitConfirm(false)}
                 className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
               >
-                Continue Without Full-Screen
+                Cancel
               </button>
               <button
-                onClick={toggleFullScreen}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                onClick={() => {
+                  setShowSubmitConfirm(false);
+                  handleSubmit();
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
-                Enter Full-Screen
+                Submit
               </button>
             </div>
           </div>
@@ -643,15 +631,7 @@ const ExamTakingPage = () => {
       <div className="flex gap-6">
         <div className="flex-1">
           <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Current Question</h2>
-              <button
-                onClick={() => setShowQuestionPalette(prev => !prev)}
-                className="text-blue-600 hover:text-blue-700 text-sm"
-              >
-                {showQuestionPalette ? 'Hide Question Palette' : 'Show Question Palette'}
-              </button>
-            </div>
+            <h2 className="text-lg font-semibold mb-4">Current Question</h2>
             {questions.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-600">No questions found for this exam.</p>
@@ -662,9 +642,6 @@ const ExamTakingPage = () => {
                   <div className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="font-medium text-lg">
-                          Question {getQuestionOrder(currentQuestion.$id)} (Marks: {getQuestionMarks(currentQuestion.$id)})
-                        </h3>
                         {currentQuestion.text && (
                           <p className="text-gray-700 mt-2">{currentQuestion.text}</p>
                         )}
@@ -688,15 +665,10 @@ const ExamTakingPage = () => {
                           ))}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end space-y-1">
+                      <div className="flex flex-col items-end">
                         <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
-                          ID: {currentQuestion.$id}
+                          Marks: {getQuestionMarks(currentQuestion.$id)}
                         </span>
-                        {currentQuestion.question_id && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
-                            Question ID: {currentQuestion.question_id}
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -782,90 +754,52 @@ const ExamTakingPage = () => {
             )}
           </div>
         </div>
-        {showQuestionPalette && (
-          <div className="w-80">
-            <div className="bg-white p-4 rounded-lg shadow sticky top-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Question Palette</h3>
-                <button
-                  onClick={() => setShowQuestionPalette(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Hide
-                </button>
-              </div>
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700">Progress</h4>
-                <div className="mt-2 text-sm">
-                  <p>Answered: {answeredCount}</p>
-                  <p>Marked for Review: {markedCount}</p>
-                  <p>Not Visited: {notVisitedCount}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {questions.map((q, index) => {
-                  const isAnswered = answers[q.$id] !== undefined;
-                  const isMarked = markedForReview[q.$id];
-                  return (
-                    <button
-                      key={q.$id}
-                      onClick={() => handleJumpToQuestion(index)}
-                      className={`p-2 rounded text-white text-sm ${
-                        index === currentQuestionIndex
-                          ? 'bg-blue-600'
-                          : isAnswered
-                          ? 'bg-green-500'
-                          : isMarked
-                          ? 'bg-yellow-500'
-                          : 'bg-gray-400'
-                      }`}
-                      title={`Question ${index + 1}: ${
-                        index === currentQuestionIndex
-                          ? 'Current'
-                          : isAnswered
-                          ? 'Answered'
-                          : isMarked
-                          ? 'Marked for Review'
-                          : 'Not Visited'
-                      }`}
-                    >
-                      {index + 1}
-                    </button>
-                  );
-                })}
+        <div className="w-80">
+          <div className="bg-white p-4 rounded-lg shadow sticky top-4">
+            <h3 className="font-semibold mb-4">Question Palette</h3>
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700">Progress</h4>
+              <div className="mt-2 text-sm">
+                <p>Answered: {answeredCount}</p>
+                <p>Marked for Review: {markedCount}</p>
+                <p>Not Visited: {notVisitedCount}</p>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {showSubmitConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-            <h3 className="text-lg font-semibold mb-4">Confirm Submission</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to submit the exam? You cannot make changes after submission.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowSubmitConfirm(false)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowSubmitConfirm(false);
-                  handleSubmit();
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Submit
-              </button>
+            <div className="grid grid-cols-5 gap-2">
+              {questions.map((q, index) => {
+                const isAnswered = answers[q.$id] !== undefined;
+                const isMarked = markedForReview[q.$id];
+                return (
+                  <button
+                    key={q.$id}
+                    onClick={() => handleJumpToQuestion(index)}
+                    className={`p-2 rounded text-white text-sm ${
+                      index === currentQuestionIndex
+                        ? 'bg-blue-600'
+                        : isAnswered
+                        ? 'bg-green-500'
+                        : isMarked
+                        ? 'bg-yellow-500'
+                        : 'bg-gray-400'
+                    }`}
+                    title={`Question ${index + 1}: ${
+                      index === currentQuestionIndex
+                        ? 'Current'
+                        : isAnswered
+                        ? 'Answered'
+                        : isMarked
+                        ? 'Marked for Review'
+                        : 'Not Visited'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
