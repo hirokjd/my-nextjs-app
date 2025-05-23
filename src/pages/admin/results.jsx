@@ -129,14 +129,14 @@ const ResultsAnalysisPage = () => {
   );
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold">Exam Results Analysis</h2>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h2 className="dashboard-title">Exam Results Analysis</h2>
         <button
-          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded mb-2 sm:mb-0 transition-colors flex items-center gap-1 sm:gap-2 text-sm sm:text-base"
+          className="btn btn-primary"
           onClick={fetchAllData}
         >
-          <span>Refresh Data</span>
+          Refresh Data
         </button>
       </div>
 
@@ -146,21 +146,21 @@ const ResultsAnalysisPage = () => {
         </div>
       )}
 
-      <div className="flex flex-col gap-4 mb-6">
+      <div className="dashboard-card">
         <div className="flex flex-col md:flex-row gap-4">
           <input
             type="text"
             placeholder="Search by student or exam..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border px-4 py-2 rounded flex-grow max-w-xl"
+            className="form-input flex-grow max-w-xl"
           />
 
           <div className="flex gap-4">
             <select
               value={examFilter}
               onChange={(e) => setExamFilter(e.target.value)}
-              className="border px-4 py-2 rounded min-w-[180px]"
+              className="form-select min-w-[180px]"
             >
               <option value="All">All Exams</option>
               {exams.map(exam => (
@@ -173,7 +173,7 @@ const ResultsAnalysisPage = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border px-4 py-2 rounded"
+              className="form-select"
             >
               <option value="All">All Statuses</option>
               <option value="Pass">Passed</option>
@@ -185,68 +185,73 @@ const ResultsAnalysisPage = () => {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <p className="text-lg">Loading results...</p>
+          <p className="text-lg text-muted">Loading results...</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <div className="inline-block min-w-full align-middle">
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                      Student
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                      Exam
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                      Score
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                      Status
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                      Date
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+        <div className="dashboard-card">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted-light">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                    Student
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider hidden sm:table-cell">
+                    Exam
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                    Score
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider hidden sm:table-cell">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider hidden md:table-cell">
+                    Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredResults.map((result) => (
+                  <tr key={result.$id} className="hover:bg-muted-light/30 transition-colors">
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {result.studentName}
+                      <div className="text-xs text-muted sm:hidden">{result.examName}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted hidden sm:table-cell">
+                      {result.examName}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted">
+                      {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted hidden sm:table-cell">
+                      <span className={`status-badge ${
+                        result.status === 'passed' 
+                          ? 'status-badge-active' 
+                          : 'status-badge-expired'
+                      }`}>
+                        {result.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted hidden md:table-cell">
+                      {result.createdDate}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <button
+                        className="btn-action btn-outline-action"
+                        onClick={() => handleView(result)}
+                        title="View"
+                        aria-label="View result"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredResults.map((result) => (
-                    <tr key={result.$id}>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm font-medium text-gray-900">
-                        {result.studentName}
-                        <div className="text-xs text-gray-500 sm:hidden">{result.examName}</div>
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">
-                        {result.examName}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
-                        {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          result.status === 'passed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {result.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden md:table-cell">
-                        {result.createdDate}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
-                        <ActionButtons result={result} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

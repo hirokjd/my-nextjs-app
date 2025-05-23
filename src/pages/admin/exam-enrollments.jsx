@@ -213,7 +213,7 @@ const ExamEnrollment = () => {
   const ActionButtons = ({ enrollment }) => (
     <div className="flex items-center gap-1 sm:gap-2">
       <button
-        className="bg-gray-500 text-white p-1 rounded hover:bg-gray-600 transition-colors"
+        className="bg-muted-light text-foreground p-1 rounded hover:bg-muted transition-colors"
         onClick={() => handleView(enrollment)}
         title="View"
         aria-label="View enrollment"
@@ -221,7 +221,7 @@ const ExamEnrollment = () => {
         <Eye size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
       </button>
       <button
-        className="bg-yellow-500 text-white p-1 rounded hover:bg-yellow-600 transition-colors"
+        className="bg-accent/20 text-accent p-1 rounded hover:bg-accent/30 transition-colors"
         onClick={() => handleEdit(enrollment)}
         title="Edit"
         aria-label="Edit enrollment"
@@ -229,7 +229,7 @@ const ExamEnrollment = () => {
         <Edit size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
       </button>
       <button
-        className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
+        className="bg-danger/20 text-danger p-1 rounded hover:bg-danger/30 transition-colors"
         onClick={() => handleDelete(enrollment.id)}
         title="Delete"
         aria-label="Delete enrollment"
@@ -242,9 +242,9 @@ const ExamEnrollment = () => {
   return (
     <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold">Exam Enrollments</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Exam Enrollments</h2>
         <button
-          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded mb-2 sm:mb-0 transition-colors flex items-center gap-1 sm:gap-2 text-sm sm:text-base"
+          className="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded mb-2 sm:mb-0 transition-colors flex items-center gap-1 sm:gap-2 text-sm sm:text-base"
           onClick={() => setModalOpen(true)}
         >
           <Plus size={16} className="w-3 h-3 sm:w-4 sm:h-4" /> 
@@ -253,56 +253,56 @@ const ExamEnrollment = () => {
       </div>
 
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+        <div className="bg-danger/20 border-l-4 border-danger text-danger p-4 mb-4">
           <p>{error}</p>
         </div>
       )}
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <p className="text-lg">Loading enrollments...</p>
+          <p className="text-lg text-muted">Loading enrollments...</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
+        <div className="overflow-x-auto bg-card rounded-lg shadow">
           <div className="inline-block min-w-full align-middle">
             <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted-light/50">
                   <tr>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-muted uppercase tracking-wider">
                       Student
                     </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-muted uppercase tracking-wider hidden sm:table-cell">
                       Exam
                     </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-muted uppercase tracking-wider">
                       Enrolled At
                     </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-muted uppercase tracking-wider hidden md:table-cell">
                       Enrollment ID
                     </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-muted uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-border">
                   {enrollments.map((enrollment) => (
-                    <tr key={enrollment.id}>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm font-medium text-gray-900">
+                    <tr key={enrollment.id} className="hover:bg-muted-light/20 transition-colors">
+                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm font-medium text-foreground">
                         {enrollment.student_name}
-                        <div className="text-xs text-gray-500 sm:hidden">{enrollment.exam_name}</div>
+                        <div className="text-xs text-muted sm:hidden">{enrollment.exam_name}</div>
                       </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">
+                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-muted hidden sm:table-cell">
                         {enrollment.exam_name}
                       </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
+                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-muted">
                         {enrollment.enrolled_at}
                       </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden md:table-cell">
+                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-muted hidden md:table-cell">
                         {enrollment.enrollment_id}
                       </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
+                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm">
                         <ActionButtons enrollment={enrollment} />
                       </td>
                     </tr>
@@ -319,17 +319,17 @@ const ExamEnrollment = () => {
         <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
           <div
             ref={modalRef}
-            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full"
+            className="bg-card rounded-lg shadow-xl p-6 max-w-md w-full border border-border"
           >
-            <h3 className="text-xl font-bold mb-4">{editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}</h3>
+            <h3 className="text-xl font-bold mb-4 text-foreground">{editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}</h3>
             <form>
               <div className="mb-4">
-                <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">Student</label>
+                <label htmlFor="student_id" className="block text-sm font-medium text-foreground">Student</label>
                 <select
                   id="student_id"
                   value={formData.student_id}
                   onChange={(e) => handleInputChange(e, "student_id")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-background text-foreground sm:text-sm"
                   required
                 >
                   <option value="">Select Student</option>
@@ -341,12 +341,12 @@ const ExamEnrollment = () => {
                 </select>
               </div>
               <div className="mb-4">
-                <label htmlFor="exam_id" className="block text-sm font-medium text-gray-700">Exam</label>
+                <label htmlFor="exam_id" className="block text-sm font-medium text-foreground">Exam</label>
                 <select
                   id="exam_id"
                   value={formData.exam_id}
                   onChange={(e) => handleInputChange(e, "exam_id")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-background text-foreground sm:text-sm"
                   required
                 >
                   <option value="">Select Exam</option>
@@ -358,13 +358,13 @@ const ExamEnrollment = () => {
                 </select>
               </div>
               <div className="mb-4">
-                <label htmlFor="enrolled_at" className="block text-sm font-medium text-gray-700">Enrollment Date</label>
+                <label htmlFor="enrolled_at" className="block text-sm font-medium text-foreground">Enrollment Date</label>
                 <input
                   type="datetime-local"
                   id="enrolled_at"
                   value={formData.enrolled_at}
                   onChange={(e) => handleInputChange(e, "enrolled_at")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-background text-foreground sm:text-sm"
                   required
                 />
               </div>
@@ -372,14 +372,14 @@ const ExamEnrollment = () => {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
+                  className="bg-muted text-foreground px-3 py-1 rounded hover:bg-muted-light transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
+                  className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition-colors"
                 >
                   {editingEnrollment ? "Update" : "Save"}
                 </button>
@@ -394,34 +394,34 @@ const ExamEnrollment = () => {
         <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
           <div
             ref={viewModalRef}
-            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full"
+            className="bg-card rounded-lg shadow-xl p-6 max-w-md w-full border border-border"
           >
-            <h3 className="text-xl font-bold mb-4">Enrollment Details</h3>
+            <h3 className="text-xl font-bold mb-4 text-foreground">Enrollment Details</h3>
             <div className="space-y-3">
               <div>
-                <h4 className="font-medium text-gray-800">Student:</h4>
-                <p>{viewingEnrollment.student_name} ({viewingEnrollment.student_email})</p>
+                <h4 className="font-medium text-foreground">Student:</h4>
+                <p className="text-muted">{viewingEnrollment.student_name} ({viewingEnrollment.student_email})</p>
               </div>
               <div>
-                <h4 className="font-medium text-gray-800">Exam:</h4>
-                <p>{viewingEnrollment.exam_name}</p>
+                <h4 className="font-medium text-foreground">Exam:</h4>
+                <p className="text-muted">{viewingEnrollment.exam_name}</p>
                 {viewingEnrollment.exam_description && (
-                  <p className="text-sm text-gray-600">{viewingEnrollment.exam_description}</p>
+                  <p className="text-sm text-muted">{viewingEnrollment.exam_description}</p>
                 )}
               </div>
               <div>
-                <h4 className="font-medium text-gray-800">Enrollment ID:</h4>
-                <p>{viewingEnrollment.enrollment_id}</p>
+                <h4 className="font-medium text-foreground">Enrollment ID:</h4>
+                <p className="text-muted">{viewingEnrollment.enrollment_id}</p>
               </div>
               <div>
-                <h4 className="font-medium text-gray-800">Enrolled At:</h4>
-                <p>{viewingEnrollment.enrolled_at}</p>
+                <h4 className="font-medium text-foreground">Enrolled At:</h4>
+                <p className="text-muted">{viewingEnrollment.enrolled_at}</p>
               </div>
             </div>
             <div className="flex justify-end mt-4">
               <button
                 onClick={closeViewModal}
-                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
+                className="bg-muted text-foreground px-3 py-1 rounded hover:bg-muted-light transition-colors"
               >
                 Close
               </button>

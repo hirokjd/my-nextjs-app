@@ -287,8 +287,8 @@ const StudentDashboard = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="ml-3">Loading your dashboard...</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <span className="ml-3 text-foreground">Loading your dashboard...</span>
         </div>
       </div>
     );
@@ -297,11 +297,11 @@ const StudentDashboard = () => {
   if (!studentInfo) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+        <div className="bg-danger/10 border-l-4 border-danger text-danger p-4 rounded">
           <p>Student data not available. Please login again.</p>
           <button
             onClick={() => router.push('/login')}
-            className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+            className="mt-2 text-sm bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1 rounded"
           >
             Go to Login
           </button>
@@ -312,189 +312,157 @@ const StudentDashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 mb-8 text-white">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              Welcome back, {studentInfo.name}!
-            </h1>
-            <p className="opacity-90">
-              {upcomingExams.length > 0 
-                ? `You have ${upcomingExams.length} upcoming exam${upcomingExams.length !== 1 ? 's' : ''}` 
-                : 'No upcoming exams'}
-            </p>
-          </div>
-          <button 
-            onClick={refreshData}
-            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-md text-sm transition-colors"
-            disabled={loading}
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
+      {/* Welcome and Header */}
+      <div className="dashboard-header mb-8">
+        <h1 className="dashboard-title text-foreground">
+          My Exams
+        </h1>
+        <p className="text-foreground">
+          Welcome, {studentInfo?.name || 'Student'} ({studentInfo?.email})
+        </p>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-          <p>{error}</p>
-          <button 
-            onClick={refreshData}
-            className="mt-2 text-sm text-red-700 hover:underline"
-            disabled={loading}
-          >
-            Try again
-          </button>
+      {/* Quick Action Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        {/* Exams Card */}
+        <div className="bg-card rounded-lg shadow-sm border border-border transition-all hover:shadow-md p-5 flex items-start space-x-4">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <FiBook size={22} className="text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">My Exams</h2>
+            <p className="text-sm text-muted mt-1">
+              {upcomingExams.length} upcoming exam{upcomingExams.length !== 1 && 's'}
+            </p>
+            <Link href="/student/exams" className="inline-block mt-2 text-sm text-primary hover:underline">
+              View Exams
+            </Link>
+          </div>
         </div>
-      )}
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Link href="/student/exams" passHref>
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start">
-            <div className="bg-blue-100 p-3 rounded-lg mr-4">
-              <FiBook className="text-blue-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">My Exams</h2>
-              <p className="mt-1 text-gray-600 text-sm">View and take upcoming exams</p>
-            </div>
+        {/* Results Card */}
+        <div className="bg-card rounded-lg shadow-sm border border-border transition-all hover:shadow-md p-5 flex items-start space-x-4">
+          <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <FiBarChart2 size={22} className="text-secondary" />
           </div>
-        </Link>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Results</h2>
+            <p className="text-sm text-muted mt-1">
+              {recentResults.length} exam result{recentResults.length !== 1 && 's'}
+            </p>
+            <Link href="/student/results" className="inline-block mt-2 text-sm text-secondary hover:underline">
+              View Results
+            </Link>
+          </div>
+        </div>
 
-        <Link href="/student/results" passHref>
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start">
-            <div className="bg-green-100 p-3 rounded-lg mr-4">
-              <FiAward className="text-green-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">Results</h2>
-              <p className="mt-1 text-gray-600 text-sm">Check your exam results</p>
-            </div>
+        {/* Profile Card */}
+        <div className="bg-card rounded-lg shadow-sm border border-border transition-all hover:shadow-md p-5 flex items-start space-x-4">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <FiUser size={22} className="text-primary" />
           </div>
-        </Link>
-
-        <Link href="/student/profile" passHref>
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start">
-            <div className="bg-purple-100 p-3 rounded-lg mr-4">
-              <FiUser className="text-purple-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">Profile</h2>
-              <p className="mt-1 text-gray-600 text-sm">Update your information</p>
-            </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Profile</h2>
+            <p className="text-sm text-muted mt-1">
+              View and manage your profile
+            </p>
+            <Link href="/student/profile" className="inline-block mt-2 text-sm text-primary hover:underline">
+              View Profile
+            </Link>
           </div>
-        </Link>
+        </div>
       </div>
 
       {/* Upcoming Exams Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-            <FiCalendar className="mr-2 text-blue-600" />
-            Upcoming Exams
-          </h2>
-          <Link href="/student/exams" passHref>
-            <span className="text-sm text-blue-600 hover:underline cursor-pointer">View All</span>
-          </Link>
-        </div>
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold text-foreground flex items-center mb-4">
+          <FiCalendar className="mr-2 text-primary" />
+          Upcoming Exams
+        </h2>
 
         {upcomingExams.length > 0 ? (
           <div className="space-y-4">
-            {upcomingExams.map((exam) => (
-              <div key={exam.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex justify-between items-center">
+            {upcomingExams.map(exam => (
+              <div 
+                key={exam.id} 
+                className="bg-card rounded-lg shadow-sm border border-border p-4 transition-all hover:shadow-md"
+              >
+                <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium text-gray-800">{exam.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      <span className="flex items-center">
+                    <h3 className="font-medium text-foreground">{exam.name}</h3>
+                    <p className="text-sm text-muted mt-1">{exam.description}</p>
+                    <div className="mt-2 flex items-center space-x-4">
+                      <span className="flex items-center text-sm text-muted">
+                        <FiCalendar className="mr-1" /> {formatDate(exam.date)}
+                      </span>
+                      <span className="flex items-center text-sm text-muted">
                         <FiClock className="mr-1" /> {formatDuration(exam.duration)}
                       </span>
-                      {exam.description && (
-                        <span className="block mt-1 text-gray-500 text-sm line-clamp-1">
-                          {exam.description}
-                        </span>
-                      )}
-                    </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-600">{formatDate(exam.date)}</p>
-                    <Link href={`/student/exams/${exam.id}`} passHref>
-                      <button className="mt-2 px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
-                        View Details
-                      </button>
-                    </Link>
-                  </div>
+                  <Link 
+                    href={`/student/exams/${exam.id}`}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm transition-colors"
+                  >
+                    View Exam
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No upcoming exams scheduled</p>
-            <Link href="/student/exams" passHref>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                Browse Available Exams
-              </button>
-            </Link>
+          <div className="bg-card rounded-lg shadow-sm border border-border p-6 text-center">
+            <p className="text-muted">No upcoming exams</p>
           </div>
         )}
       </div>
 
       {/* Recent Results Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-            <FiBarChart2 className="mr-2 text-green-600" />
-            Recent Results
-          </h2>
-          <Link href="/student/results" passHref>
-            <span className="text-sm text-blue-600 hover:underline cursor-pointer">View All</span>
-          </Link>
-        </div>
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold text-foreground flex items-center mb-4">
+          <FiAward className="mr-2 text-secondary" />
+          Recent Results
+        </h2>
 
         {recentResults.length > 0 ? (
           <div className="space-y-4">
-            {recentResults.map((result) => (
-              <div key={result.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex justify-between items-center">
+            {recentResults.map(result => (
+              <div 
+                key={result.id} 
+                className="bg-card rounded-lg shadow-sm border border-border p-4 transition-all hover:shadow-md"
+              >
+                <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium text-gray-800">{result.exam}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {formatDate(result.date)}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Score: {result.obtainedMarks}/{result.totalMarks}
-                    </p>
+                    <h3 className="font-medium text-foreground">{result.exam}</h3>
+                    <div className="mt-2 flex items-center space-x-4">
+                      <span className="flex items-center text-sm text-muted">
+                        Score: <span className="ml-1 font-medium text-foreground">{result.obtainedMarks}/{result.totalMarks}</span>
+                      </span>
+                      <span className="flex items-center text-sm text-muted">
+                        Percentage: <span className="ml-1 font-medium text-foreground">{result.score}%</span>
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        result.status === "passed" || result.status === "Pass" 
+                          ? "bg-success/20 text-success" 
+                          : "bg-danger/20 text-danger"
+                      }`}>
+                        {result.status === "passed" ? "Passed" : result.status === "failed" ? "Failed" : result.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                      result.score >= 80 
-                        ? 'bg-green-100 text-green-800' 
-                        : result.score >= 50 
-                          ? 'bg-yellow-100 text-yellow-800' 
-                          : 'bg-red-100 text-red-800'
-                    }`}>
-                      {result.score}%
-                    </span>
-                    <Link href={`/student/results/${result.examId}`} passHref>
-                      <button className="mt-2 px-4 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 transition-colors">
-                        View Details
-                      </button>
-                    </Link>
-                  </div>
+                  <Link 
+                    href={`/student/results/${result.id}`}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 text-sm transition-colors"
+                  >
+                    View Result
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No results available yet</p>
-            <Link href="/student/exams" passHref>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                Take an Exam
-              </button>
-            </Link>
+          <div className="bg-card rounded-lg shadow-sm border border-border p-6 text-center">
+            <p className="text-muted">No results found</p>
           </div>
         )}
       </div>

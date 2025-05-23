@@ -181,94 +181,109 @@ const Students = () => {
   }, [modalOpen, viewModalOpen]);
 
   const ActionButtons = ({ student }) => (
-    <div className="flex items-center gap-1 sm:gap-2">
+    <div className="flex items-center gap-2">
       <button
-        className="bg-gray-500 text-white p-1 rounded hover:bg-gray-600 transition-colors"
+        className="btn-action btn-outline-action"
         onClick={() => handleView(student)}
         title="View"
         aria-label="View student"
       >
-        <Eye size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
+        <Eye size={16} />
       </button>
       <button
-        className="bg-yellow-500 text-white p-1 rounded hover:bg-yellow-600 transition-colors"
+        className="btn-action btn-outline-action"
         onClick={() => handleEdit(student)}
         title="Edit"
         aria-label="Edit student"
       >
-        <Edit size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
+        <Edit size={16} />
       </button>
       <button
-        className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
+        className="btn-action btn-danger-action"
         onClick={() => handleDelete(student.id)}
         title="Delete"
         aria-label="Delete student"
       >
-        <Trash2 size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
+        <Trash2 size={16} />
       </button>
     </div>
   );
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold">Manage Students</h2>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h2 className="dashboard-title">Manage Students</h2>
         <button
-          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded mb-2 sm:mb-0 transition-colors flex items-center gap-1 sm:gap-2 text-sm sm:text-base"
+          className="btn btn-primary"
           onClick={() => setModalOpen(true)}
         >
-          <Plus size={16} className="w-3 h-3 sm:w-4 sm:h-4" /> 
+          <Plus size={16} /> 
           <span>Add Student</span>
         </button>
       </div>
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <p className="text-lg">Loading students...</p>
+          <p className="text-lg text-muted">Loading students...</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <div className="inline-block min-w-full align-middle">
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                      Email
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                      Student ID
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                      Status
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                      Registered By
-                    </th>
-                    <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+        <div className="dashboard-card">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted-light">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider hidden sm:table-cell">
+                    Email
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                    Student ID
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider hidden sm:table-cell">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider hidden md:table-cell">
+                    Registered By
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {students.map((student) => (
+                  <tr key={student.id} className="hover:bg-muted-light/30 transition-colors">
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {student.name}
+                      <div className="text-xs text-muted sm:hidden">{student.email}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted hidden sm:table-cell">
+                      {student.email}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted">
+                      {student.student_id}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted hidden sm:table-cell">
+                      <span className={`status-badge ${
+                        student.status === 'active' 
+                          ? 'status-badge-active' 
+                          : 'status-badge-inactive'
+                      }`}>
+                        {student.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted hidden md:table-cell">
+                      {student.registered_by}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <ActionButtons student={student} />
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {students.map((student) => (
-                    <tr key={student.id}>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm font-medium text-gray-900">{student.name}</td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">{student.email}</td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">{student.student_id}</td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">{student.status}</td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden md:table-cell">{student.registered_by}</td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
-                        <ActionButtons student={student} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -278,47 +293,47 @@ const Students = () => {
         <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
           <div
             ref={modalRef}
-            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full"
+            className="card p-6 max-w-md w-full"
           >
             <h3 className="text-xl font-bold mb-4">{editingStudent ? "Edit Student" : "Add Student"}</h3>
             <form>
               <div className="mb-4">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
+                <label htmlFor="name" className="block text-sm font-medium">Name</label>
                 <input
                   type="text"
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange(e, "name")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="form-input mt-1 block w-full"
                 />
               </div>
               <div className="mb-4">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                <label htmlFor="email" className="block text-sm font-medium">Email</label>
                 <input
                   type="email"
                   id="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange(e, "email")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="form-input mt-1 block w-full"
                 />
               </div>
               <div className="mb-4">
-                <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">Student ID</label>
+                <label htmlFor="student_id" className="block text-sm font-medium">Student ID</label>
                 <input
                   type="text"
                   id="student_id"
                   value={formData.student_id}
                   onChange={(e) => handleInputChange(e, "student_id")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="form-input mt-1 block w-full"
                 />
               </div>
               <div className="mb-4">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
+                <label htmlFor="status" className="block text-sm font-medium">Status</label>
                 <select
                   id="status"
                   value={formData.status}
                   onChange={(e) => handleInputChange(e, "status")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="form-select mt-1 block w-full"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -328,14 +343,14 @@ const Students = () => {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
+                  className="btn btn-outline"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
+                  className="btn btn-primary"
                 >
                   Save
                 </button>
@@ -350,21 +365,29 @@ const Students = () => {
         <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
           <div
             ref={viewModalRef}
-            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full"
+            className="card p-6 max-w-md w-full"
           >
             <h3 className="text-xl font-bold mb-4">View Student</h3>
-            <div className="mb-4">
-              <p><strong>Name:</strong> {viewingStudent.name}</p>
-              <p><strong>Email:</strong> {viewingStudent.email}</p>
-              <p><strong>Student ID:</strong> {viewingStudent.student_id}</p>
-              <p><strong>Status:</strong> {viewingStudent.status}</p>
-              <p><strong>Registered By:</strong> {viewingStudent.registered_by}</p>
-              <p><strong>Registered Date:</strong> {viewingStudent.registered_date}</p>
+            <div className="mb-4 space-y-2">
+              <p><span className="font-medium">Name:</span> {viewingStudent.name}</p>
+              <p><span className="font-medium">Email:</span> {viewingStudent.email}</p>
+              <p><span className="font-medium">Student ID:</span> {viewingStudent.student_id}</p>
+              <p><span className="font-medium">Status:</span> 
+                <span className={`status-badge ml-2 ${
+                  viewingStudent.status === 'active' 
+                    ? 'status-badge-active' 
+                    : 'status-badge-inactive'
+                }`}>
+                  {viewingStudent.status.toUpperCase()}
+                </span>
+              </p>
+              <p><span className="font-medium">Registered By:</span> {viewingStudent.registered_by}</p>
+              <p><span className="font-medium">Registered Date:</span> {viewingStudent.registered_date}</p>
             </div>
             <div className="flex justify-end">
               <button
                 onClick={closeViewModal}
-                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
+                className="btn btn-outline"
               >
                 Close
               </button>

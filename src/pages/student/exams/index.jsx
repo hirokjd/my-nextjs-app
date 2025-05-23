@@ -218,13 +218,13 @@ const StudentExamsPage = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">My Exams</h1>
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <h2 className="dashboard-title text-foreground">My Exams</h2>
         </div>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="ml-3">Loading your exams...</span>
+        <div className="dashboard-card flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <span className="ml-3 text-muted">Loading your exams...</span>
         </div>
       </div>
     );
@@ -232,39 +232,41 @@ const StudentExamsPage = () => {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">My Exams</h1>
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <h2 className="dashboard-title text-foreground">My Exams</h2>
         </div>
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
-          <p className="font-medium">Error loading exams:</p>
-          <p className="mt-1">{error}</p>
-          <button
-            onClick={() => {
-              console.log('User clicked Try Again');
-              window.location.reload();
-            }}
-            className="mt-3 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
-          >
-            Try Again
-          </button>
+        <div className="dashboard-card">
+          <div className="p-4 border-l-4 border-danger bg-danger/10 text-danger rounded-md">
+            <p className="font-medium">Error loading exams:</p>
+            <p className="mt-1">{error}</p>
+            <button
+              onClick={() => {
+                console.log('User clicked Try Again');
+                window.location.reload();
+              }}
+              className="px-4 py-2 mt-3 bg-danger hover:bg-danger/90 text-danger-foreground rounded"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">My Exams</h1>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h2 className="dashboard-title text-foreground">My Exams</h2>
         {studentInfo && (
-          <p className="text-sm text-gray-600">Welcome, {studentInfo.name} ({studentInfo.email})</p>
+          <p className="text-foreground">Welcome, {studentInfo.name} ({studentInfo.email})</p>
         )}
       </div>
 
       {enrollments.length === 0 ? (
-        <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded">
-          <p>You are not currently enrolled in any exams.</p>
+        <div className="dashboard-card">
+          <p className="p-4 text-center text-foreground">You are not currently enrolled in any exams.</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -278,32 +280,32 @@ const StudentExamsPage = () => {
             return (
               <div
                 key={enrollment.$id}
-                className="p-4 border rounded-lg border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+                className="dashboard-card bg-card border border-border"
               >
-                <h2 className="text-lg font-semibold text-gray-800">{exam.name}</h2>
-                <div className="mt-2 space-y-2 text-sm text-gray-600">
-                  <p><span className="font-medium">Exam ID:</span> {exam.exam_id || exam.$id}</p>
-                  <p><span className="font-medium">Date:</span> {formatDate(exam.exam_date)}</p>
-                  <p><span className="font-medium">Duration:</span> {exam.duration} minutes</p>
-                  <p><span className="font-medium">Status:</span> 
-                    <span className={`ml-1 px-2 py-1 rounded-full text-xs ${
-                      exam.status === 'active' ? 'bg-green-100 text-green-800' :
-                      exam.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                      'bg-yellow-100 text-yellow-800'
+                <h2 className="text-lg font-semibold text-foreground">{exam.name}</h2>
+                <div className="mt-2 space-y-2 text-sm text-muted">
+                  <p><span className="font-medium text-foreground">Exam ID:</span> {exam.exam_id || exam.$id}</p>
+                  <p><span className="font-medium text-foreground">Date:</span> {formatDate(exam.exam_date)}</p>
+                  <p><span className="font-medium text-foreground">Duration:</span> {exam.duration} minutes</p>
+                  <p><span className="font-medium text-foreground">Status:</span> 
+                    <span className={`ml-1 px-2 py-0.5 text-xs rounded-full ${
+                      exam.status === 'active' ? 'bg-success/20 text-success' :
+                      exam.status === 'completed' ? 'bg-muted/50 text-muted-foreground' :
+                      'bg-primary/20 text-primary'
                     }`}>
                       {exam.status}
                     </span>
                   </p>
-                  <p><span className="font-medium">Enrolled on:</span> {formatDate(enrollment.enrolled_at)}</p>
+                  <p><span className="font-medium text-foreground">Enrolled on:</span> {formatDate(enrollment.enrolled_at)}</p>
                 </div>
                 <div className="mt-4">
                   <button
                     onClick={() => handleStartExam(exam.$id)}
                     disabled={exam.status !== 'active'}
-                    className={`w-full py-2 px-4 rounded-md text-white ${
+                    className={`w-full px-4 py-2 rounded transition-colors ${
                       exam.status === 'active' 
-                        ? 'bg-blue-600 hover:bg-blue-700' 
-                        : 'bg-gray-400 cursor-not-allowed'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                        : 'bg-muted text-muted-foreground opacity-60 cursor-not-allowed'
                     }`}
                   >
                     {exam.status === 'active' ? 'Start Exam' : 'Exam Not Available'}

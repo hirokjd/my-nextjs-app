@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { databases, storage, ID } from "../../utils/appwrite";
+import { ClipboardList, FileText } from "lucide-react";
 
 const BUCKET_ID = "questions";
 
@@ -222,36 +223,6 @@ const QuestionsPage = () => {
     };
   }, [modalOpen, viewModalOpen]);
 
-  // Action buttons component
-  const ActionButtons = ({ question }) => (
-    <div className="flex items-center gap-2">
-      <button
-        className="bg-gray-500 text-white p-1 rounded hover:bg-gray-600 transition-colors"
-        onClick={() => handleView(question)}
-        title="View"
-        aria-label="View question"
-      >
-        <EyeIcon />
-      </button>
-      <button
-        className="bg-yellow-500 text-white p-1 rounded hover:bg-yellow-600 transition-colors"
-        onClick={() => handleEdit(question)}
-        title="Edit"
-        aria-label="Edit question"
-      >
-        <EditIcon />
-      </button>
-      <button
-        className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
-        onClick={() => handleDelete(question.$id)}
-        title="Delete"
-        aria-label="Delete question"
-      >
-        <DeleteIcon />
-      </button>
-    </div>
-  );
-
   // Icon components
   const EyeIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -273,79 +244,135 @@ const QuestionsPage = () => {
   );
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold mb-6">Manage Questions</h2>
-
-      <button
-        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mb-6 transition-colors"
-        onClick={() => setModalOpen(true)}
-      >
-        + Add Question
-      </button>
-
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <p className="text-lg">Loading questions...</p>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1 className="dashboard-title">
+          <ClipboardList className="text-primary" size={24} />
+          Manage Questions
+        </h1>
+        <div className="dashboard-actions">
+          <button
+            onClick={() => setModalOpen(true)}
+            className="btn-action btn-primary-action"
+          >
+            Add Question
+          </button>
         </div>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Text</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Difficulty</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {questions.map((q) => (
-                <tr key={q.$id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{q.question_id}</td>
-                  <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs truncate">{q.text || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {q.imageUrl ? (
-                      <img src={q.imageUrl} alt="Question" className="h-12 object-contain" />
-                    ) : (
-                      <span className="text-sm text-gray-400">No Image</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{q.difficulty || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <ActionButtons question={q} />
-                  </td>
+      </div>
+
+      {/* Questions Table Card */}
+      <div className="dashboard-card">
+        <div className="dashboard-card-header">
+          <h2 className="dashboard-card-title">
+            <FileText className="text-primary" size={20} />
+            Questions Database
+          </h2>
+        </div>
+        
+        <div className="dashboard-card-content">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-sm font-medium text-foreground">Question ID</th>
+                  <th className="px-4 py-3 text-sm font-medium text-foreground">Content</th>
+                  <th className="px-4 py-3 text-sm font-medium text-foreground">Difficulty</th>
+                  <th className="px-4 py-3 text-sm font-medium text-foreground">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {loading ? (
+                  <tr>
+                    <td colSpan="4" className="px-4 py-8 text-center text-muted">
+                      Loading questions...
+                    </td>
+                  </tr>
+                ) : questions.length > 0 ? (
+                  questions.map((question) => (
+                    <tr key={question.$id} className="hover:bg-muted/10">
+                      <td className="px-4 py-3 text-sm text-foreground">{question.question_id}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        {question.text ? (
+                          <div className="line-clamp-1">{question.text}</div>
+                        ) : (
+                          <div className="text-muted italic">Image question</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`status-badge ${
+                          question.difficulty === "Easy" 
+                            ? "status-badge-active" 
+                            : question.difficulty === "Medium" 
+                              ? "status-badge-upcoming" 
+                              : "status-badge-expired"
+                        }`}>
+                          {question.difficulty || "Not set"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleView(question)}
+                            className="p-1 text-muted hover:text-foreground"
+                            title="View Question"
+                          >
+                            <EyeIcon />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(question)}
+                            className="p-1 text-muted hover:text-primary"
+                            title="Edit Question"
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(question.$id)}
+                            className="p-1 text-muted hover:text-danger"
+                            title="Delete Question"
+                          >
+                            <DeleteIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" className="px-4 py-8 text-center text-muted">
+                      No questions found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Add/Edit Question Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50">
           <div
             ref={modalRef}
-            className="bg-white p-6 rounded-lg shadow-xl w-[1200px] max-h-[90vh] overflow-y-auto"
+            className="bg-card p-6 rounded-lg shadow-xl w-[1200px] max-h-[90vh] overflow-y-auto border border-border"
           >
-            <h3 className="text-xl font-semibold mb-4">
+            <h3 className="text-xl font-semibold mb-4 text-foreground">
               {editingQuestion ? "Edit Question" : "Add Question"}
             </h3>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question ID</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Question ID</label>
                 <input
-                  className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-border rounded px-3 py-2 bg-background text-foreground focus:ring-primary focus:border-primary"
                   value={formData.question_id}
                   onChange={(e) => handleInputChange(e, "question_id")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Created By</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Created By</label>
                 <input
-                  className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-border rounded px-3 py-2 bg-background text-foreground focus:ring-primary focus:border-primary"
                   value={formData.created_by}
                   onChange={(e) => handleInputChange(e, "created_by")}
                 />
@@ -353,42 +380,42 @@ const QuestionsPage = () => {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Question Text</label>
               <textarea
-                className="w-full border rounded px-3 py-2 h-32 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-border rounded px-3 py-2 h-32 bg-background text-foreground focus:ring-primary focus:border-primary"
                 value={formData.text}
                 onChange={(e) => handleInputChange(e, "text")}
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Question Image</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Question Image</label>
               <input
                 type="file"
-                className="block w-full text-sm text-gray-500
+                className="block w-full text-sm text-foreground bg-background
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-md file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100"
+                  file:bg-primary/10 file:text-primary
+                  hover:file:bg-primary/20"
                 onChange={(e) => handleImageUpload(e.target.files[0], "image_id")}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Difficulty</label>
                 <input
-                  className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-border rounded px-3 py-2 bg-background text-foreground focus:ring-primary focus:border-primary"
                   placeholder="easy, medium, hard"
                   value={formData.difficulty}
                   onChange={(e) => handleInputChange(e, "difficulty")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Tags</label>
                 <input
-                  className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-border rounded px-3 py-2 bg-background text-foreground focus:ring-primary focus:border-primary"
                   placeholder="comma separated"
                   value={formData.tags}
                   onChange={(e) => handleInputChange(e, "tags")}
@@ -396,16 +423,16 @@ const QuestionsPage = () => {
               </div>
             </div>
 
-            <h4 className="text-lg font-medium mb-3">Options:</h4>
+            <h4 className="text-lg font-medium mb-3 text-foreground">Options:</h4>
             <div className="space-y-4">
               {formData.options_text.map((option, index) => (
-                <div key={index} className="flex items-start gap-4 p-3 border rounded-lg">
+                <div key={index} className="flex items-start gap-4 p-3 border border-border rounded-lg bg-background">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Option {index + 1}
                     </label>
                     <textarea
-                      className="w-full border rounded px-3 py-2 h-20 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-border rounded px-3 py-2 h-20 bg-background text-foreground focus:ring-primary focus:border-primary"
                       value={option}
                       onChange={(e) => handleInputChange(e, "options_text", index)}
                     />
@@ -414,26 +441,26 @@ const QuestionsPage = () => {
                         <input
                           type="radio"
                           name="correct_answer"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                          className="h-4 w-4 text-primary focus:ring-primary border-border bg-background"
                           checked={formData.correct_answer === index}
                           onChange={() =>
                             setFormData({ ...formData, correct_answer: index })
                           }
                         />
-                        <span className="ml-2 text-sm text-gray-700">Correct Answer</span>
+                        <span className="ml-2 text-sm text-foreground">Correct Answer</span>
                       </label>
                     </div>
                   </div>
                   <div className="w-48">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Option Image</label>
+                    <label className="block text-sm font-medium text-foreground mb-1">Option Image</label>
                     <input
                       type="file"
-                      className="block w-full text-sm text-gray-500
+                      className="block w-full text-sm text-foreground bg-background
                         file:mr-2 file:py-1 file:px-2
                         file:rounded file:border-0
                         file:text-xs file:font-semibold
-                        file:bg-blue-50 file:text-blue-700
-                        hover:file:bg-blue-100"
+                        file:bg-primary/10 file:text-primary
+                        hover:file:bg-primary/20"
                       onChange={(e) =>
                         handleImageUpload(e.target.files[0], "options_image", index)
                       }
@@ -445,13 +472,13 @@ const QuestionsPage = () => {
 
             <div className="flex justify-end gap-3 mt-6">
               <button
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition-colors"
+                className="px-4 py-2 bg-muted text-foreground rounded hover:bg-muted/80 transition-colors"
                 onClick={closeModal}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
                 onClick={handleSave}
               >
                 {editingQuestion ? "Update" : "Save"}
@@ -463,120 +490,127 @@ const QuestionsPage = () => {
 
       {/* View Question Modal */}
       {viewModalOpen && viewingQuestion && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
-          <div
-            ref={viewModalRef}
-            className="bg-white p-8 rounded-lg shadow-xl w-[90%] max-w-6xl max-h-[90vh] overflow-y-auto"
-          >
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">Question Details</h3>
-              <button
-                onClick={closeViewModal}
-                className="text-gray-500 hover:text-gray-700"
-                aria-label="Close"
-              >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Question ID</h4>
-                  <p className="mt-1 text-lg font-semibold">{viewingQuestion.question_id}</p>
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Created By</h4>
-                  <p className="mt-1 text-lg">{viewingQuestion.created_by || "N/A"}</p>
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Difficulty</h4>
-                  <p className="mt-1 text-lg capitalize">{viewingQuestion.difficulty || "N/A"}</p>
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Tags</h4>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {viewingQuestion.tags?.length ? (
-                      viewingQuestion.tags.map((tag, i) => (
-                        <span key={i} className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                          {tag}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-gray-400">No tags</p>
-                    )}
-                  </div>
-                </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border" ref={viewModalRef}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-foreground">View Question</h3>
+                <button
+                  onClick={() => setViewModalOpen(false)}
+                  className="text-muted hover:text-foreground transition-colors"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
               
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Question</h4>
-                  {viewingQuestion.text && (
-                    <p className="mt-1 text-lg bg-gray-50 p-3 rounded">{viewingQuestion.text}</p>
-                  )}
-                  {viewingQuestion.imageUrl && (
-                    <div className="mt-3">
+                  <h4 className="text-sm font-medium text-muted mb-2">Question ID</h4>
+                  <p className="p-3 bg-muted/20 rounded-md text-foreground">{viewingQuestion.question_id}</p>
+                </div>
+
+                {viewingQuestion.text && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted mb-2">Question Text</h4>
+                    <p className="p-3 bg-muted/20 rounded-md text-foreground">{viewingQuestion.text}</p>
+                  </div>
+                )}
+
+                {viewingQuestion.imageUrl && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted mb-2">Question Image</h4>
+                    <div className="p-3 bg-muted/20 rounded-md">
                       <img 
                         src={viewingQuestion.imageUrl} 
                         alt="Question" 
-                        className="max-h-80 w-full object-contain border rounded-lg"
+                        className="max-h-60 object-contain mx-auto border border-border rounded-md"
                       />
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-8">
-              <h4 className="text-lg font-medium text-gray-700 mb-4">Options</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {viewingQuestion.options_text.map((option, index) => (
-                  <div 
-                    key={index} 
-                    className={`p-4 rounded-lg border-2 ${viewingQuestion.correct_answer === index 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-200'}`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h5 className="font-medium">Option {index + 1}</h5>
-                          {viewingQuestion.correct_answer === index && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Correct Answer
-                            </span>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="text-sm font-medium text-muted mb-2">Options</h4>
+                  <div className="space-y-3">
+                    {viewingQuestion.options_text.map((option, index) => (
+                      <div 
+                        key={index} 
+                        className={`p-3 rounded-md flex items-start gap-3 ${
+                          index === viewingQuestion.correct_answer
+                            ? "bg-success/10 border border-success/30"
+                            : "bg-muted/20"
+                        }`}
+                      >
+                        <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-medium ${
+                          index === viewingQuestion.correct_answer
+                            ? "bg-success text-success-foreground"
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                          {String.fromCharCode(65 + index)}
+                        </div>
+                        <div className="flex-1">
+                          <p className={index === viewingQuestion.correct_answer ? "text-success font-medium" : "text-foreground"}>
+                            {option || <span className="text-muted italic">No text</span>}
+                          </p>
+                          
+                          {viewingQuestion.optionsImageUrls && viewingQuestion.optionsImageUrls[index] && (
+                            <img 
+                              src={viewingQuestion.optionsImageUrls[index]} 
+                              alt={`Option ${String.fromCharCode(65 + index)}`} 
+                              className="mt-2 max-h-32 object-contain border border-border rounded-md"
+                            />
                           )}
                         </div>
-                        <p className="mt-1 text-gray-700">{option || "N/A"}</p>
                       </div>
-                      {viewingQuestion.optionsImageUrls[index] && (
-                        <div className="flex-shrink-0 w-32 h-32">
-                          <img 
-                            src={viewingQuestion.optionsImageUrls[index]} 
-                            alt={`Option ${index + 1}`} 
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
+                    ))}
+                  </div>
+                </div>
+
+                {viewingQuestion.difficulty && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted mb-2">Difficulty</h4>
+                    <p className="p-3 bg-muted/20 rounded-md text-foreground">{viewingQuestion.difficulty}</p>
+                  </div>
+                )}
+
+                {viewingQuestion.tags && viewingQuestion.tags.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted mb-2">Tags</h4>
+                    <div className="p-3 bg-muted/20 rounded-md flex flex-wrap gap-2">
+                      {viewingQuestion.tags.map((tag, index) => (
+                        <span key={index} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
 
-            <div className="flex justify-end mt-8">
-              <button
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                onClick={closeViewModal}
-              >
-                Close
-              </button>
+                <div>
+                  <h4 className="text-sm font-medium text-muted mb-2">Created By</h4>
+                  <p className="p-3 bg-muted/20 rounded-md text-foreground">{viewingQuestion.created_by}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  onClick={() => setViewModalOpen(false)}
+                  className="px-4 py-2 bg-muted text-foreground rounded-md hover:bg-muted/80 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setViewModalOpen(false);
+                    handleEdit(viewingQuestion);
+                  }}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                  Edit Question
+                </button>
+              </div>
             </div>
           </div>
         </div>

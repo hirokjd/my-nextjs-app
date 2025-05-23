@@ -207,11 +207,11 @@ const ResultsListPage = () => {
     return (
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">My Results</h1>
+          <h1 className="text-2xl font-bold text-foreground">My Results</h1>
         </div>
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="ml-3">Loading your results...</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <span className="ml-3 text-foreground">Loading your results...</span>
         </div>
       </div>
     );
@@ -221,9 +221,9 @@ const ResultsListPage = () => {
     return (
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">My Results</h1>
+          <h1 className="text-2xl font-bold text-foreground">My Results</h1>
         </div>
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+        <div className="bg-danger/10 border-l-4 border-danger text-danger p-4 rounded">
           <p className="font-medium">Error loading results:</p>
           <p className="mt-1">{error}</p>
           <button
@@ -231,7 +231,7 @@ const ResultsListPage = () => {
               console.log('User clicked Try Again');
               window.location.reload();
             }}
-            className="mt-3 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+            className="mt-3 text-sm bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1 rounded"
           >
             Try Again
           </button>
@@ -243,14 +243,14 @@ const ResultsListPage = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">My Results</h1>
+        <h1 className="text-2xl font-bold text-foreground">My Results</h1>
         {studentInfo && (
-          <p className="text-sm text-gray-600">Welcome, {studentInfo.name}</p>
+          <p className="text-sm text-muted">Welcome, {studentInfo.name}</p>
         )}
       </div>
 
       {results.length === 0 ? (
-        <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded">
+        <div className="bg-primary/10 border-l-4 border-primary text-primary p-4 rounded">
           <p>You don't have any results yet.</p>
         </div>
       ) : (
@@ -262,31 +262,31 @@ const ResultsListPage = () => {
               return null;
             }
 
-            const percentage = result.percentage?.toFixed(1) || 0;
+            const percentage = result.percentage || Math.round((result.score / result.total_marks) * 100);
             const status = result.status || (percentage >= 30 ? 'passed' : 'failed');
 
             return (
               <div
                 key={result.$id}
-                className="p-4 border rounded-lg border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+                className="p-4 border rounded-lg border-border bg-card shadow-sm hover:shadow-md transition-shadow"
               >
-                <h2 className="text-lg font-semibold text-gray-800">{exam.name}</h2>
-                <div className="mt-2 space-y-2 text-sm text-gray-600">
-                  <p><span className="font-medium">Score:</span> {result.score}/{result.total_marks} ({percentage}%)</p>
-                  <p><span className="font-medium">Status:</span> 
+                <h2 className="text-lg font-semibold text-foreground">{exam.name}</h2>
+                <div className="mt-2 space-y-2 text-sm text-muted">
+                  <p><span className="font-medium text-foreground">Score:</span> {result.score}/{result.total_marks} ({percentage}%)</p>
+                  <p><span className="font-medium text-foreground">Status:</span> 
                     <span className={`ml-1 px-2 py-1 rounded-full text-xs ${
-                      status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      status === 'passed' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
                     }`}>
-                      {status}
+                      {status === 'passed' ? 'Passed' : 'Failed'}
                     </span>
                   </p>
-                  <p><span className="font-medium">Time Taken:</span> {formatDuration(result.time_taken)}</p>
-                  <p><span className="font-medium">Completed On:</span> {formatDate(result.completed_at)}</p>
+                  <p><span className="font-medium text-foreground">Time Taken:</span> {formatDuration(result.time_taken)}</p>
+                  <p><span className="font-medium text-foreground">Completed On:</span> {formatDate(result.completed_at || result.attempted_at)}</p>
                 </div>
                 <div className="mt-4">
                   <Link
-                    href={`/student/results/${result.exam_id}`}
-                    className="w-full block text-center py-2 px-4 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                    href={`/student/results/${result.$id}`}
+                    className="w-full block text-center py-2 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     View Details
                   </Link>

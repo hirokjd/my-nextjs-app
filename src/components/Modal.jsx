@@ -51,14 +51,14 @@ const Modal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-border">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-gray-800">{title}</h3>
+            <h3 className="text-xl font-semibold card-heading">{title}</h3>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-muted hover:text-foreground transition-colors"
               disabled={isLoading}
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -68,7 +68,7 @@ const Modal = ({
           </div>
 
           {(error || localError) && (
-            <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
+            <div className="mb-4 p-3 bg-danger/10 border-l-4 border-danger text-danger rounded">
               <p>{error || localError}</p>
             </div>
           )}
@@ -78,9 +78,9 @@ const Modal = ({
               {fields.length > 0 ? (
                 fields.map((field) => (
                   <div key={field.name} className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-card-foreground">
                       {field.label}
-                      {field.required && <span className="text-red-500"> *</span>}
+                      {field.required && <span className="text-danger"> *</span>}
                     </label>
                     
                     {field.type === "select" ? (
@@ -88,7 +88,7 @@ const Modal = ({
                         name={field.name}
                         value={formData[field.name] || ""}
                         onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="form-select w-full"
                         disabled={isLoading}
                         required={field.required}
                       >
@@ -103,7 +103,7 @@ const Modal = ({
                         name={field.name}
                         value={formData[field.name] || ""}
                         onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="form-textarea w-full"
                         rows={3}
                         disabled={isLoading}
                         required={field.required}
@@ -114,7 +114,7 @@ const Modal = ({
                         name={field.name}
                         value={formData[field.name] || ""}
                         onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="form-input w-full"
                         disabled={isLoading}
                         required={field.required}
                       />
@@ -122,7 +122,7 @@ const Modal = ({
                   </div>
                 ))
               ) : (
-                <p className="text-gray-500">No fields provided.</p>
+                <p className="text-muted">No fields provided.</p>
               )}
             </div>
 
@@ -130,14 +130,14 @@ const Modal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                className="btn btn-outline"
                 disabled={isLoading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="btn btn-primary"
                 disabled={isLoading}
               >
                 {isLoading ? 'Saving...' : 'Save'}

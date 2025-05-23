@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 // import AdminLayout from "../../components/AdminLayout";
 import { databases, account } from "../../utils/appwrite";
-import { BarChart, Users, FileText, CheckCircle, ClipboardList } from "lucide-react";
+import { BarChart, Users, FileText, CheckCircle, ClipboardList, LayoutDashboard, Calendar } from "lucide-react";
 import Link from "next/link";
 
 const Dashboard = () => {
@@ -92,18 +92,19 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <span className="ml-3 text-dark-text">Loading dashboard data...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
+      <div className="bg-danger/10 border-l-4 border-danger text-danger p-4 mb-6 rounded">
         <p>{error}</p>
         <button 
           onClick={fetchDashboardData}
-          className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          className="mt-2 btn btn-danger"
         >
           Retry
         </button>
@@ -112,78 +113,115 @@ const Dashboard = () => {
   }
 
   return (
-    <>
-      <h2 className="text-2xl font-bold mb-6">Admin Dashboard</h2>
-
-      {/* Overview Cards - Updated to show only available data */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-6">
-        <DashboardCard 
-          icon={<Users size={28} />} 
-          title="Total Students" 
-          value={stats.students} 
-          link="/admin/students"
-        />
-        <DashboardCard 
-          icon={<FileText size={28} />} 
-          title="Total Exams" 
-          value={stats.exams} 
-          link="/admin/exams"
-        />
-        <DashboardCard 
-          icon={<ClipboardList size={28} />} 
-          title="Total Questions" 
-          value={stats.questions} 
-          link="/admin/questions"
-        />
+    <div className="dashboard-container">
+      {/* Dashboard Header */}
+      <div className="dashboard-header">
+        <h1 className="dashboard-title">
+          <LayoutDashboard className="text-primary" />
+          Admin Dashboard
+        </h1>
       </div>
 
-      {/* Upcoming Exams */}
-      <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">📅 Upcoming Exams</h3>
-          <Link href="/admin/exams" className="text-blue-600 hover:underline">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <Link href="/admin/students" className="stats-card">
+          <div className="stats-icon stats-icon-primary">
+            <Users size={24} />
+          </div>
+          <div>
+            <div className="stats-value">{stats.students}</div>
+            <div className="stats-label">Students</div>
+          </div>
+        </Link>
+        
+        <Link href="/admin/exams" className="stats-card">
+          <div className="stats-icon stats-icon-secondary">
+            <FileText size={24} />
+          </div>
+          <div>
+            <div className="stats-value">{stats.exams}</div>
+            <div className="stats-label">Exams</div>
+          </div>
+        </Link>
+        
+        <Link href="/admin/questions" className="stats-card">
+          <div className="stats-icon stats-icon-accent">
+            <ClipboardList size={24} />
+          </div>
+          <div>
+            <div className="stats-value">{stats.questions}</div>
+            <div className="stats-label">Questions</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Upcoming Exams Section */}
+      <div className="dashboard-card">
+        <div className="dashboard-card-header">
+          <h2 className="dashboard-card-title">
+            <Calendar className="text-primary" />
+            Upcoming Exams
+          </h2>
+          <Link href="/admin/exams" className="text-primary hover:text-primary-dark text-sm">
             View All
           </Link>
         </div>
-        {upcomingExams.length > 0 ? (
-          <div className="space-y-3">
-            {upcomingExams.map((exam) => (
-              <div key={exam.$id} className="border-b pb-3 last:border-b-0">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">{exam.name}</h4>
-                  <span className="text-sm text-gray-500">
-                    {new Date(exam.exam_date).toLocaleDateString()}
+        
+        <div className="dashboard-card-content">
+          {upcomingExams.length > 0 ? (
+            upcomingExams.map((exam) => (
+              <div key={exam.$id} className="dashboard-list-item">
+                <div className="dashboard-list-item-header">
+                  <div>
+                    <h3 className="dashboard-list-item-title">{exam.name}</h3>
+                    <p className="dashboard-list-item-subtitle">{exam.exam_id}</p>
+                  </div>
+                  <span className="status-badge status-badge-upcoming">
+                    {exam.status}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  Duration: {exam.duration} minutes | Status: {exam.status}
-                </p>
+                <div className="dashboard-list-item-content">
+                  <span className="text-sm text-muted">
+                    Date: {new Date(exam.exam_date).toLocaleDateString()}
+                  </span>
+                  <span className="text-sm text-muted">
+                    Duration: {exam.duration} minutes
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500">No upcoming exams scheduled.</p>
-        )}
+            ))
+          ) : (
+            <div className="text-center py-4 text-muted">
+              No upcoming exams scheduled
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Recent Activity - Now showing summary stats */}
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">📊 System Summary</h3>
-        {recentActivity.map((log, index) => (
-          <div key={index} className="flex items-start mb-3 last:mb-0">
-            <div className="bg-blue-100 p-2 rounded-full mr-3">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
-              </svg>
+      {/* System Activity Section */}
+      <div className="dashboard-card">
+        <div className="dashboard-card-header">
+          <h2 className="dashboard-card-title">
+            <BarChart className="text-primary" />
+            System Summary
+          </h2>
+        </div>
+        
+        <div className="dashboard-card-content">
+          {recentActivity.map((activity, index) => (
+            <div key={index} className="data-list-item">
+              <div className="data-list-icon">
+                <CheckCircle size={16} className="text-primary" />
+              </div>
+              <div className="data-list-content">
+                <div className="data-list-title">{activity.message}</div>
+                <div className="data-list-meta">{activity.time}</div>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-700">{log.message}</p>
-              <p className="text-sm text-gray-500">{log.time}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 
