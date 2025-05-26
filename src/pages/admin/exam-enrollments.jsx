@@ -746,7 +746,7 @@ const ExamEnrollment = () => {
                 {/* Edit/Add Modal */}
                 {modalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-100 opacity-100">
+                        <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100"> {/* Changed max-w-md to max-w-xl */}
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">{editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}</h3>
                             <form className="space-y-4">
                                 <div>
@@ -789,7 +789,7 @@ const ExamEnrollment = () => {
                 {/* View Modal */}
                 {viewModalOpen && viewingEnrollment && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={viewModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-100 opacity-100">
+                        <div ref={viewModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100"> {/* Changed max-w-md to max-w-xl */}
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">Enrollment Details</h3>
                             <div className="space-y-4 text-gray-700">
                                 <div><h4 className="font-semibold text-gray-800">Student:</h4><p className="ml-2">{viewingEnrollment.student_name} ({viewingEnrollment.student_email})</p></div>
@@ -807,7 +807,7 @@ const ExamEnrollment = () => {
                 {/* Bulk Enroll Modal */}
                 {bulkModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={bulkModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg h-[80vh] flex flex-col transform transition-all duration-300 scale-100 opacity-100">
+                        <div ref={bulkModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl h-[80vh] flex flex-col transform transition-all duration-300 scale-100 opacity-100"> {/* Changed max-w-lg to max-w-2xl */}
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">Bulk Enroll Students</h3>
                             <div className="mb-4">
                                 <label htmlFor="bulk_exam_id" className="block text-sm font-semibold text-gray-700 mb-1">Select Exam</label>
