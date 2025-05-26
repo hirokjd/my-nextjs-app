@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { databases } from "../../utils/appwrite"; // Assuming this path is correct for your Appwrite setup
+import { databases } from "../../utils/appwrite";
 import { Plus, Edit, Trash2, Eye, Search, X } from "lucide-react";
-import { Query } from "appwrite"; // Import Query
+import { Query } from "appwrite";
 
 // Custom Confirmation Dialog Component
 const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel" }) => {
@@ -53,7 +53,6 @@ const MessageDialog = ({ isOpen, title, message, onClose, closeText = "Close" })
     );
 };
 
-
 const ExamEnrollment = () => {
     const [enrollments, setEnrollments] = useState([]);
     const [students, setStudents] = useState([]);
@@ -62,22 +61,22 @@ const ExamEnrollment = () => {
     const [error, setError] = useState(null);
 
     // --- Modal States ---
-    const [modalOpen, setModalOpen] = useState(false); // Add/Edit Modal
-    const [viewModalOpen, setViewModalOpen] = useState(false); // View Modal
-    const [bulkModalOpen, setBulkModalOpen] = useState(false); // Bulk Enroll Modal
-    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false); // Confirmation Dialog
-    const [messageDialogOpen, setMessageDialogOpen] = useState(false); // Message Dialog (for alerts)
+    const [modalOpen, setModalOpen] = useState(false);
+    const [viewModalOpen, setViewModalOpen] = useState(false);
+    const [bulkModalOpen, setBulkModalOpen] = useState(false);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [messageDialogOpen, setMessageDialogOpen] = useState(false);
     const [dialogContent, setDialogContent] = useState({ title: "", message: "", onConfirm: () => {}, onCancel: () => {} });
 
     // --- Data States ---
     const [editingEnrollment, setEditingEnrollment] = useState(null);
     const [viewingEnrollment, setViewingEnrollment] = useState(null);
-    const [selectedStudents, setSelectedStudents] = useState(new Set()); // For bulk enroll
-    const [selectedEnrollments, setSelectedEnrollments] = useState(new Set()); // For bulk delete
+    const [selectedStudents, setSelectedStudents] = useState(new Set());
+    const [selectedEnrollments, setSelectedEnrollments] = useState(new Set());
     const [selectedExamForBulk, setSelectedExamForBulk] = useState("");
-    const [searchTerm, setSearchTerm] = useState(""); // For bulk enroll student search
-    const [filterExamId, setFilterExamId] = useState(""); // New state for exam filter
-    const [mainSearchTerm, setMainSearchTerm] = useState(""); // New state for main table search
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterExamId, setFilterExamId] = useState("");
+    const [mainSearchTerm, setMainSearchTerm] = useState("");
 
     // --- Refs ---
     const modalRef = useRef(null);
@@ -107,7 +106,7 @@ const ExamEnrollment = () => {
                     databases.listDocuments(
                         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
                         process.env.NEXT_PUBLIC_APPWRITE_ENROLLMENTS_COLLECTION_ID,
-                        [Query.limit(1000)]
+                        [Query.orderDesc("$createdAt"), Query.limit(1000)]
                     ),
                     databases.listDocuments(
                         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
@@ -120,7 +119,7 @@ const ExamEnrollment = () => {
                     databases.listDocuments(
                         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
                         process.env.NEXT_PUBLIC_APPWRITE_EXAMS_COLLECTION_ID,
-                        [Query.orderDesc("$createdAt"), Query.limit(1000)] // Added orderBy for exams
+                        [Query.orderDesc("$createdAt"), Query.limit(1000)]
                     ),
                 ]);
 
@@ -169,6 +168,7 @@ const ExamEnrollment = () => {
                         exam_id: exam?.$id || examLookupKey || 'N/A',
                         exam_name: exam?.name || 'Unknown Exam',
                         exam_description: exam?.description || '',
+                        exam_date: exam?.exam_date ? new Date(exam.exam_date).toLocaleDateString() : 'N/A',
                         enrolled_at: enrollment.enrolled_at
                             ? new Date(
                                 enrollment.enrolled_at
@@ -182,7 +182,7 @@ const ExamEnrollment = () => {
             setEnrollments(normalizedEnrollments);
             setStudents(studentsResponse.documents);
             setExams(examsResponse.documents);
-            setSelectedEnrollments(new Set()); // Clear selections on data refresh
+            setSelectedEnrollments(new Set());
         } catch (error) {
             setError(error.message);
             console.error("Error fetching data:", error);
@@ -482,10 +482,8 @@ const ExamEnrollment = () => {
 
     const handleSelectAllEnrollments = () => {
         if (selectedEnrollments.size === enrollments.length && enrollments.length > 0) {
-            // If all are selected, deselect all
             setSelectedEnrollments(new Set());
         } else {
-            // Otherwise, select all
             const allIds = new Set(enrollments.map(e => e.id));
             setSelectedEnrollments(allIds);
         }
@@ -504,7 +502,7 @@ const ExamEnrollment = () => {
 
         setDialogContent({
             title: "Confirm Bulk Deletion",
-            message: `Are you sure you want to delete ${selectedEnrollments.size} selected enrollments? This action cannot be undone.`,
+            message: `Are you sure you want to delete ${	selectedEnrollments.size} selected enrollments? This action cannot be undone.`,
             onConfirm: async () => {
                 setConfirmDialogOpen(false);
                 setLoading(true);
@@ -534,7 +532,7 @@ const ExamEnrollment = () => {
                         onClose: () => setMessageDialogOpen(false)
                     });
                     setMessageDialogOpen(true);
-                    fetchAllData(); // Refresh data after deletion
+                    fetchAllData();
                 } catch (error) {
                     console.error("An unexpected error occurred during bulk deletion:", error);
                     setDialogContent({
@@ -573,7 +571,6 @@ const ExamEnrollment = () => {
             enrollment.exam_name.toLowerCase().includes(mainSearchTerm.toLowerCase());
         return matchesExamFilter && matchesSearchTerm;
     });
-
 
     // --- Action Buttons Component ---
     const ActionButtons = ({ enrollment }) => (
@@ -654,7 +651,7 @@ const ExamEnrollment = () => {
                         <option value="">All Exams</option>
                         {exams.map(exam => (
                             <option key={exam.$id} value={exam.$id}>
-                                {exam.name} ({exam.exam_id}) {/* Display exam name and exam_id */}
+                                {exam.name} ({exam.exam_id})
                             </option>
                         ))}
                     </select>
@@ -683,7 +680,6 @@ const ExamEnrollment = () => {
                     </div>
                 </div>
 
-
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
                         <p className="text-xl text-gray-600">Loading...</p>
@@ -691,24 +687,7 @@ const ExamEnrollment = () => {
                 ) : (
                     <div className="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                                            onChange={handleSelectAllEnrollments}
-                                            checked={allEnrollmentsSelected}
-                                            disabled={enrollments.length === 0}
-                                        />
-                                    </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Exam</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled At</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Enrollment ID</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
+                            <thead className="bg-gray-50"><tr><th scope="col" className="px-6 py-3 text-left"><input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" onChange={handleSelectAllEnrollments} checked={allEnrollmentsSelected} disabled={enrollments.length === 0}/></th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Exam</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Exam Date</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled At</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Enrollment ID</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th></tr></thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {filteredEnrollments.length > 0 ? (
                                     filteredEnrollments.map((enrollment) => (
@@ -726,6 +705,7 @@ const ExamEnrollment = () => {
                                                 <div className="text-xs text-gray-500 sm:hidden">{enrollment.exam_name}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{enrollment.exam_name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{enrollment.exam_date}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{enrollment.enrolled_at}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{enrollment.enrollment_id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -735,7 +715,7 @@ const ExamEnrollment = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="6" className="text-center py-10 text-gray-500 text-lg">No enrollments found for the selected filter.</td>
+                                        <td colSpan="7" className="text-center py-10 text-gray-500 text-lg">No enrollments found for the selected filter.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -746,7 +726,7 @@ const ExamEnrollment = () => {
                 {/* Edit/Add Modal */}
                 {modalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100"> {/* Changed max-w-md to max-w-xl */}
+                        <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">{editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}</h3>
                             <form className="space-y-4">
                                 <div>
@@ -789,7 +769,7 @@ const ExamEnrollment = () => {
                 {/* View Modal */}
                 {viewModalOpen && viewingEnrollment && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={viewModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100"> {/* Changed max-w-md to max-w-xl */}
+                        <div ref={viewModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">Enrollment Details</h3>
                             <div className="space-y-4 text-gray-700">
                                 <div><h4 className="font-semibold text-gray-800">Student:</h4><p className="ml-2">{viewingEnrollment.student_name} ({viewingEnrollment.student_email})</p></div>
@@ -807,7 +787,7 @@ const ExamEnrollment = () => {
                 {/* Bulk Enroll Modal */}
                 {bulkModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={bulkModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl h-[80vh] flex flex-col transform transition-all duration-300 scale-100 opacity-100"> {/* Changed max-w-lg to max-w-2xl */}
+                        <div ref={bulkModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl h-[80vh] flex flex-col transform transition-all duration-300 scale-100 opacity-100">
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">Bulk Enroll Students</h3>
                             <div className="mb-4">
                                 <label htmlFor="bulk_exam_id" className="block text-sm font-semibold text-gray-700 mb-1">Select Exam</label>
@@ -832,24 +812,9 @@ const ExamEnrollment = () => {
                                 />
                                 <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 mt-2" />
                             </div>
-
                             <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg p-3 mb-4 shadow-inner">
                                 <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50 sticky top-0 z-10">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                                                    onChange={() => handleSelectAllStudents(filteredStudentIds)}
-                                                    checked={allFilteredStudentsSelected}
-                                                    disabled={filteredStudents.length === 0}
-                                                />
-                                            </th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                        </tr>
-                                    </thead>
+                                    <thead className="bg-gray-50 sticky top-0 z-10"><tr><th className="px-4 py-3 text-left"><input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" onChange={() => handleSelectAllStudents(filteredStudentIds)} checked={allFilteredStudentsSelected} disabled={filteredStudents.length === 0}/></th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th></tr></thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {filteredStudents.map((student) => (
                                             <tr key={student.$id} className="hover:bg-gray-50 transition-colors duration-150">
@@ -873,7 +838,6 @@ const ExamEnrollment = () => {
                                     </tbody>
                                 </table>
                             </div>
-
                             <div className="flex justify-between items-center mt-auto pt-4">
                                 <span className="text-sm text-gray-600 font-medium">{selectedStudents.size} student(s) selected</span>
                                 <div className="flex gap-3">
