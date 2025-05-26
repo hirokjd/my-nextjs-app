@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { databases } from "../../utils/appwrite";
-import { Plus, Edit, Trash2, Eye, Search, X } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, X, Download } from "lucide-react";
 import { Query } from "appwrite";
 
 // Custom Confirmation Dialog Component
@@ -68,6 +68,9 @@ const ExamEnrollment = () => {
     const [messageDialogOpen, setMessageDialogOpen] = useState(false);
     const [dialogContent, setDialogContent] = useState({ title: "", message: "", onConfirm: () => {}, onCancel: () => {} });
 
+    // --- Export State ---
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+
     // --- Data States ---
     const [editingEnrollment, setEditingEnrollment] = useState(null);
     const [viewingEnrollment, setViewingEnrollment] = useState(null);
@@ -82,6 +85,7 @@ const ExamEnrollment = () => {
     const modalRef = useRef(null);
     const viewModalRef = useRef(null);
     const bulkModalRef = useRef(null);
+    const exportButtonRef = useRef(null);
 
     // --- Initial Form Data ---
     const initialFormData = {
@@ -95,6 +99,22 @@ const ExamEnrollment = () => {
     useEffect(() => {
         fetchAllData();
     }, []);
+
+    // --- Close Export Menu on Click Outside ---
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (exportButtonRef.current && !exportButtonRef.current.contains(event.target)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+
+        if (isExportMenuOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isExportMenuOpen]);
 
     // --- Fetch All Data ---
     const fetchAllData = useCallback(async () => {
@@ -190,6 +210,86 @@ const ExamEnrollment = () => {
             setLoading(false);
         }
     }, []);
+
+    // --- Export to CSV ---
+    const exportToCSV = async () => {
+        try {
+            const { Parser } = await import('json2csv');
+            const fields = [
+                { label: 'Enrollment ID', value: 'enrollment_id' },
+                { label: 'Student Name', value: 'student_name' },
+                { label: 'Student Email', value: 'student_email' },
+                { label: 'Exam Name', value: 'exam_name' },
+                { label: 'Exam Date', value: 'exam_date' },
+                { label: 'Enrolled At', value: 'enrolled_at' },
+            ];
+            const parser = new Parser({ fields });
+            const csv = parser.parse(filteredEnrollments);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `enrollments_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error exporting to CSV:', error);
+            setDialogContent({
+                title: "Export Error",
+                message: `Failed to export to CSV: ${error.message}`,
+                onClose: () => setMessageDialogOpen(false)
+            });
+            setMessageDialogOpen(true);
+        }
+    };
+
+    // --- Export to XLS ---
+    const exportToXLS = async () => {
+        try {
+            const { utils, writeFile } = await import('xlsx');
+            const data = filteredEnrollments.map(enrollment => ({
+                'Enrollment ID': enrollment.enrollment_id,
+                'Student Name': enrollment.student_name,
+                'Student Email': enrollment.student_email,
+                'Exam Name': enrollment.exam_name,
+                'Exam Date': enrollment.exam_date,
+                'Enrolled At': enrollment.enrolled_at,
+            }));
+            const worksheet = utils.json_to_sheet(data);
+            const workbook = utils.book_new();
+            utils.book_append_sheet(workbook, worksheet, 'Enrollments');
+            writeFile(workbook, `enrollments_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        } catch (error) {
+            console.error('Error exporting to XLS:', error);
+            setDialogContent({
+                title: "Export Error",
+                message: `Failed to export to XLS: ${error.message}`,
+                onClose: () => setMessageDialogOpen(false)
+            });
+            setMessageDialogOpen(true);
+        }
+    };
+
+    // --- Handle Export Selection ---
+    const handleExport = (format) => {
+        setIsExportMenuOpen(false);
+        if (filteredEnrollments.length === 0) {
+            setDialogContent({
+                title: "No Data",
+                message: "No enrollments available to export.",
+                onClose: () => setMessageDialogOpen(false)
+            });
+            setMessageDialogOpen(true);
+            return;
+        }
+        if (format === 'csv') {
+            exportToCSV();
+        } else if (format === 'xls') {
+            exportToXLS();
+        }
+    };
 
     // --- Input Change Handler ---
     const handleInputChange = (e, field) => {
@@ -502,7 +602,7 @@ const ExamEnrollment = () => {
 
         setDialogContent({
             title: "Confirm Bulk Deletion",
-            message: `Are you sure you want to delete ${	selectedEnrollments.size} selected enrollments? This action cannot be undone.`,
+            message: `Are you sure you want to delete ${selectedEnrollments.size} selected enrollments? This action cannot be undone.`,
             onConfirm: async () => {
                 setConfirmDialogOpen(false);
                 setLoading(true);
@@ -629,6 +729,31 @@ const ExamEnrollment = () => {
                             <Plus size={18} />
                             <span>Add Single</span>
                         </button>
+                        <div className="relative" ref={exportButtonRef}>
+                            <button
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold shadow-sm"
+                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                            >
+                                <Download size={18} />
+                                <span>Export</span>
+                            </button>
+                            {isExportMenuOpen && (
+                                <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10">
+                                    <button
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        onClick={() => handleExport('csv')}
+                                    >
+                                        Export to CSV
+                                    </button>
+                                    <button
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        onClick={() => handleExport('xls')}
+                                    >
+                                        Export to XLS
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -687,7 +812,25 @@ const ExamEnrollment = () => {
                 ) : (
                     <div className="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50"><tr><th scope="col" className="px-6 py-3 text-left"><input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" onChange={handleSelectAllEnrollments} checked={allEnrollmentsSelected} disabled={enrollments.length === 0}/></th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Exam</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Exam Date</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled At</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Enrollment ID</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th></tr></thead>
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3 text-left">
+                                        <input 
+                                            type="checkbox" 
+                                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" 
+                                            onChange={handleSelectAllEnrollments} 
+                                            checked={allEnrollmentsSelected} 
+                                            disabled={enrollments.length === 0}
+                                        />
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Exam</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Exam Date</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled At</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Enrollment ID</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {filteredEnrollments.length > 0 ? (
                                     filteredEnrollments.map((enrollment) => (
@@ -722,18 +865,24 @@ const ExamEnrollment = () => {
                         </table>
                     </div>
                 )}
-
+                
                 {/* Edit/Add Modal */}
                 {modalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
                         <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">{editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}</h3>
-                            <form className="space-y-4">
+                            <form className="mx-auto space-y-4">
                                 <div>
                                     <label htmlFor="student_id" className="block text-sm font-semibold text-gray-700 mb-1">Student</label>
-                                    <select id="student_id" value={formData.student_id} onChange={(e) => handleInputChange(e, "student_id")} className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" required>
+                                    <select 
+                                        id="student_id" 
+                                        value={formData.student_id} 
+                                        onChange={(e) => handleInputChange(e, "student_id")} 
+                                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
+                                        required
+                                    >
                                         <option value="">Select Student</option>
-                                        {students.map(student => (
+                                        {students.map((student) => (
                                             <option key={student.$id} value={student.$id}>
                                                 {student.name} ({student.email})
                                             </option>
@@ -742,9 +891,15 @@ const ExamEnrollment = () => {
                                 </div>
                                 <div>
                                     <label htmlFor="exam_id" className="block text-sm font-semibold text-gray-700 mb-1">Exam</label>
-                                    <select id="exam_id" value={formData.exam_id} onChange={(e) => handleInputChange(e, "exam_id")} className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" required>
+                                    <select 
+                                        id="exam_id" 
+                                        value={formData.exam_id} 
+                                        onChange={(e) => handleInputChange(e, "exam_id")} 
+                                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
+                                        required
+                                    >
                                         <option value="">Select Exam</option>
-                                        {exams.map(exam => (
+                                        {exams.map((exam) => (
                                             <option key={exam.$id} value={exam.$id}>
                                                 {exam.name}
                                             </option>
@@ -753,11 +908,28 @@ const ExamEnrollment = () => {
                                 </div>
                                 <div>
                                     <label htmlFor="enrolled_at" className="block text-sm font-semibold text-gray-700 mb-1">Enrollment Date</label>
-                                    <input type="datetime-local" id="enrolled_at" value={formData.enrolled_at} onChange={(e) => handleInputChange(e, "enrolled_at")} className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" required />
+                                    <input 
+                                        type="datetime-local" 
+                                        id="enrolled_at" 
+                                        value={formData.enrolled_at} 
+                                        onChange={(e) => handleInputChange(e, "enrolled_at")} 
+                                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
+                                        required 
+                                    />
                                 </div>
                                 <div className="flex justify-end gap-3 mt-6">
-                                    <button type="button" onClick={closeModal} className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">Cancel</button>
-                                    <button type="button" onClick={handleSave} className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-md">
+                                    <button 
+                                        type="button" 
+                                        onClick={closeModal} 
+                                        className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleSave} 
+                                        className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-md"
+                                    >
                                         {editingEnrollment ? "Update" : "Save"}
                                     </button>
                                 </div>
@@ -765,25 +937,45 @@ const ExamEnrollment = () => {
                         </div>
                     </div>
                 )}
-
+                
                 {/* View Modal */}
                 {viewModalOpen && viewingEnrollment && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
                         <div ref={viewModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">Enrollment Details</h3>
                             <div className="space-y-4 text-gray-700">
-                                <div><h4 className="font-semibold text-gray-800">Student:</h4><p className="ml-2">{viewingEnrollment.student_name} ({viewingEnrollment.student_email})</p></div>
-                                <div><h4 className="font-semibold text-gray-800">Exam:</h4><p className="ml-2">{viewingEnrollment.exam_name}</p>{viewingEnrollment.exam_description && (<p className="text-sm text-gray-600 ml-2">{viewingEnrollment.exam_description}</p>)}</div>
-                                <div><h4 className="font-semibold text-gray-800">Enrollment ID:</h4><p className="ml-2">{viewingEnrollment.enrollment_id}</p></div>
-                                <div><h4 className="font-semibold text-gray-800">Enrolled At:</h4><p className="ml-2">{viewingEnrollment.enrolled_at}</p></div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-800">Student:</h4>
+                                    <p className="ml-2">{viewingEnrollment.student_name} ({viewingEnrollment.student_email})</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-800">Exam:</h4>
+                                    <p className="ml-2">{viewingEnrollment.exam_name}</p>
+                                    {viewingEnrollment.exam_description && (
+                                        <p className="text-sm text-gray-600 ml-2">{viewingEnrollment.exam_description}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-800">Enrollment ID:</h4>
+                                    <p className="ml-2">{viewingEnrollment.enrollment_id}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-800">Enrolled At:</h4>
+                                    <p className="ml-2">{viewingEnrollment.enrolled_at}</p>
+                                </div>
                             </div>
                             <div className="flex justify-end mt-6">
-                                <button onClick={closeViewModal} className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">Close</button>
+                                <button 
+                                    onClick={closeViewModal} 
+                                    className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md"
+                                >
+                                    Close
+                                </button>
                             </div>
                         </div>
                     </div>
                 )}
-
+                
                 {/* Bulk Enroll Modal */}
                 {bulkModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
@@ -791,7 +983,13 @@ const ExamEnrollment = () => {
                             <h3 className="text-2xl font-bold text-gray-800 mb-5">Bulk Enroll Students</h3>
                             <div className="mb-4">
                                 <label htmlFor="bulk_exam_id" className="block text-sm font-semibold text-gray-700 mb-1">Select Exam</label>
-                                <select id="bulk_exam_id" value={selectedExamForBulk} onChange={(e) => setSelectedExamForBulk(e.target.value)} className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 bg-gray-50" required>
+                                <select 
+                                    id="bulk_exam_id" 
+                                    value={selectedExamForBulk} 
+                                    onChange={(e) => setSelectedExamForBulk(e.target.value)} 
+                                    className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 bg-gray-50" 
+                                    required
+                                >
                                     <option value="">Select Exam to Enroll In</option>
                                     {exams.map(exam => (
                                         <option key={exam.$id} value={exam.$id}>
@@ -814,7 +1012,21 @@ const ExamEnrollment = () => {
                             </div>
                             <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg p-3 mb-4 shadow-inner">
                                 <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50 sticky top-0 z-10"><tr><th className="px-4 py-3 text-left"><input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" onChange={() => handleSelectAllStudents(filteredStudentIds)} checked={allFilteredStudentsSelected} disabled={filteredStudents.length === 0}/></th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th></tr></thead>
+                                    <thead className="bg-gray-50 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" 
+                                                    onChange={() => handleSelectAllStudents(filteredStudentIds)} 
+                                                    checked={allFilteredStudentsSelected} 
+                                                    disabled={filteredStudents.length === 0}
+                                                />
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        </tr>
+                                    </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {filteredStudents.map((student) => (
                                             <tr key={student.$id} className="hover:bg-gray-50 transition-colors duration-150">
@@ -841,8 +1053,19 @@ const ExamEnrollment = () => {
                             <div className="flex justify-between items-center mt-auto pt-4">
                                 <span className="text-sm text-gray-600 font-medium">{selectedStudents.size} student(s) selected</span>
                                 <div className="flex gap-3">
-                                    <button type="button" onClick={closeBulkModal} className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">Cancel</button>
-                                    <button type="button" onClick={handleBulkSave} className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 shadow-md" disabled={!selectedExamForBulk || selectedStudents.size === 0 || loading}>
+                                    <button 
+                                        type="button" 
+                                        onClick={closeBulkModal} 
+                                        className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleBulkSave} 
+                                        className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 shadow-md" 
+                                        disabled={!selectedExamForBulk || selectedStudents.size === 0 || loading}
+                                    >
                                         {loading ? 'Enrolling...' : `Enroll Selected (${selectedStudents.size})`}
                                     </button>
                                 </div>
@@ -850,7 +1073,7 @@ const ExamEnrollment = () => {
                         </div>
                     </div>
                 )}
-
+                
                 {/* Confirmation Dialog */}
                 <ConfirmationDialog
                     isOpen={confirmDialogOpen}
@@ -859,7 +1082,7 @@ const ExamEnrollment = () => {
                     onConfirm={dialogContent.onConfirm}
                     onCancel={dialogContent.onCancel}
                 />
-
+                
                 {/* Message Dialog */}
                 <MessageDialog
                     isOpen={messageDialogOpen}
