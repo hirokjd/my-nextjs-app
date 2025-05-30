@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { databases } from "../../utils/appwrite";
+import { databases } from "../../utils/appwrite"; // Assuming this path is correct
 import { Plus, Edit, Trash2, Eye, Search, X, Download } from "lucide-react";
 import { Query } from "appwrite";
 
@@ -179,6 +179,20 @@ const ExamEnrollment = () => {
                         console.error(`Exam NOT FOUND for ID: ${examLookupKey} (Enrollment: ${enrollment.$id})`);
                     }
 
+                    // Determine appearance status based on the 'status' field from Appwrite
+                    // which now directly stores "appeared" or "not_appeared".
+                    const rawAppwriteStatus = enrollment.status; // This will be "appeared" or "not_appeared"
+                    let appearance_status_display = "Not Appeared"; // Default
+                    if (rawAppwriteStatus === 'appeared') {
+                        appearance_status_display = "Appeared";
+                    } else if (rawAppwriteStatus === 'not_appeared') {
+                        appearance_status_display = "Not Appeared";
+                    }
+                    // If enrollment.status can have other values (e.g. "Upcoming"), 
+                    // and you want "Not Appeared" for those, this logic is fine.
+                    // If enrollment.status will *only* ever be "appeared" or "not_appeared", 
+                    // then the default could be removed or adjusted.
+
                     return {
                         id: enrollment.$id,
                         enrollment_id: enrollment.enrollment_id,
@@ -190,11 +204,11 @@ const ExamEnrollment = () => {
                         exam_description: exam?.description || '',
                         exam_date: exam?.exam_date ? new Date(exam.exam_date).toLocaleDateString() : 'N/A',
                         enrolled_at: enrollment.enrolled_at
-                            ? new Date(
-                                enrollment.enrolled_at
-                            ).toLocaleString()
+                            ? new Date(enrollment.enrolled_at).toLocaleString()
                             : 'N/A',
                         raw_enrolled_at: enrollment.enrolled_at,
+                        appearance_status_display,
+                        raw_appwrite_status: rawAppwriteStatus, 
                     };
                 }
             );
@@ -221,6 +235,7 @@ const ExamEnrollment = () => {
                 { label: 'Student Email', value: 'student_email' },
                 { label: 'Exam Name', value: 'exam_name' },
                 { label: 'Exam Date', value: 'exam_date' },
+                { label: 'Status', value: 'appearance_status_display' },
                 { label: 'Enrolled At', value: 'enrolled_at' },
             ];
             const parser = new Parser({ fields });
@@ -255,6 +270,7 @@ const ExamEnrollment = () => {
                 'Student Email': enrollment.student_email,
                 'Exam Name': enrollment.exam_name,
                 'Exam Date': enrollment.exam_date,
+                'Status': enrollment.appearance_status_display,
                 'Enrolled At': enrollment.enrolled_at,
             }));
             const worksheet = utils.json_to_sheet(data);
@@ -271,8 +287,7 @@ const ExamEnrollment = () => {
             setMessageDialogOpen(true);
         }
     };
-
-    // --- Handle Export Selection ---
+    
     const handleExport = (format) => {
         setIsExportMenuOpen(false);
         if (filteredEnrollments.length === 0) {
@@ -291,12 +306,10 @@ const ExamEnrollment = () => {
         }
     };
 
-    // --- Input Change Handler ---
     const handleInputChange = (e, field) => {
         setFormData({ ...formData, [field]: e.target.value });
     };
 
-    // --- Form Validation ---
     const validateForm = () => {
         if (!formData.student_id || !formData.exam_id) {
             setDialogContent({
@@ -310,14 +323,12 @@ const ExamEnrollment = () => {
         return true;
     };
 
-    // --- Generate Enrollment ID ---
     const generateEnrollmentId = () => {
         return `enr_${Date.now().toString(36)}_${Math.random()
             .toString(36)
             .substring(2, 8)}`;
     };
 
-    // --- Save Single Enrollment (Add/Edit) ---
     const handleSave = async () => {
         if (!validateForm()) return;
 
@@ -329,6 +340,7 @@ const ExamEnrollment = () => {
                 student_id: [formData.student_id],
                 exam_id: [formData.exam_id],
                 enrolled_at: formData.enrolled_at,
+                status: editingEnrollment ? editingEnrollment.raw_appwrite_status : "not_appeared", 
             };
 
             if (editingEnrollment) {
@@ -360,7 +372,6 @@ const ExamEnrollment = () => {
         }
     };
 
-    // --- Delete Single Enrollment ---
     const handleDelete = (id) => {
         setDialogContent({
             title: "Confirm Deletion",
@@ -389,7 +400,6 @@ const ExamEnrollment = () => {
         setConfirmDialogOpen(true);
     };
 
-    // --- Edit Enrollment ---
     const handleEdit = (enrollment) => {
         setEditingEnrollment(enrollment);
         setFormData({
@@ -404,13 +414,11 @@ const ExamEnrollment = () => {
         setModalOpen(true);
     };
 
-    // --- View Enrollment ---
     const handleView = (enrollment) => {
         setViewingEnrollment(enrollment);
         setViewModalOpen(true);
     };
 
-    // --- Close Modals ---
     const closeModal = () => {
         setModalOpen(false);
         setEditingEnrollment(null);
@@ -429,7 +437,6 @@ const ExamEnrollment = () => {
         setSearchTerm("");
     };
 
-    // --- Handle Click Outside Modals ---
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -451,7 +458,6 @@ const ExamEnrollment = () => {
         };
     }, [modalOpen, viewModalOpen, bulkModalOpen]);
 
-    // --- Bulk Enrollment Handlers ---
     const handleStudentSelect = (studentId) => {
         setSelectedStudents((prevSelected) => {
             const newSelected = new Set(prevSelected);
@@ -524,6 +530,7 @@ const ExamEnrollment = () => {
                 student_id: [studentId],
                 exam_id: [selectedExamForBulk],
                 enrolled_at: enrolledAt,
+                status: "not_appeared", // Default status for new bulk enrollments
             };
 
             promises.push(
@@ -533,10 +540,10 @@ const ExamEnrollment = () => {
                     "unique()",
                     enrollmentData
                 ).then(() => successCount++)
-                    .catch((err) => {
-                        console.error(`Failed to enroll student ${studentId}:`, err);
-                        failCount++;
-                    })
+                .catch((err) => {
+                    console.error(`Failed to enroll student ${studentId}:`, err);
+                    failCount++;
+                })
             );
         });
 
@@ -562,12 +569,10 @@ const ExamEnrollment = () => {
                 onClose: () => setMessageDialogOpen(false)
             });
             setMessageDialogOpen(true);
-        } finally {
-            // fetchAllData will set loading to false
-        }
+        } 
+        // setLoading will be set to false by fetchAllData
     };
 
-    // --- Bulk Delete Enrollment Handlers ---
     const handleSelectEnrollment = (enrollmentId) => {
         setSelectedEnrollments((prevSelected) => {
             const newSelected = new Set(prevSelected);
@@ -581,14 +586,14 @@ const ExamEnrollment = () => {
     };
 
     const handleSelectAllEnrollments = () => {
-        if (selectedEnrollments.size === enrollments.length && enrollments.length > 0) {
+        if (selectedEnrollments.size === filteredEnrollments.length && filteredEnrollments.length > 0) {
             setSelectedEnrollments(new Set());
         } else {
-            const allIds = new Set(enrollments.map(e => e.id));
+            const allIds = new Set(filteredEnrollments.map(e => e.id));
             setSelectedEnrollments(allIds);
         }
     };
-
+    
     const handleBulkDelete = () => {
         if (selectedEnrollments.size === 0) {
             setDialogContent({
@@ -641,16 +646,14 @@ const ExamEnrollment = () => {
                         onClose: () => setMessageDialogOpen(false)
                     });
                     setMessageDialogOpen(true);
-                } finally {
-                    // fetchAllData will set loading to false
                 }
+                // setLoading will be set to false by fetchAllData
             },
             onCancel: () => setConfirmDialogOpen(false)
         });
         setConfirmDialogOpen(true);
     };
 
-    // --- Filtered Students for Bulk Modal ---
     const filteredStudents = students.filter(
         (student) =>
             student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -660,19 +663,17 @@ const ExamEnrollment = () => {
     const filteredStudentIds = filteredStudents.map(student => student.$id);
     const allFilteredStudentsSelected = filteredStudents.length > 0 && filteredStudentIds.every(id => selectedStudents.has(id));
 
-    // Determine if all enrollments are selected for the main table header checkbox
-    const allEnrollmentsSelected = enrollments.length > 0 && selectedEnrollments.size === enrollments.length;
-
-    // --- Filtered Enrollments for Display ---
     const filteredEnrollments = enrollments.filter(enrollment => {
         const matchesExamFilter = filterExamId === "" || enrollment.exam_id === filterExamId;
         const matchesSearchTerm = mainSearchTerm === "" ||
             enrollment.student_name.toLowerCase().includes(mainSearchTerm.toLowerCase()) ||
-            enrollment.exam_name.toLowerCase().includes(mainSearchTerm.toLowerCase());
+            enrollment.exam_name.toLowerCase().includes(mainSearchTerm.toLowerCase()) ||
+            (enrollment.enrollment_id && enrollment.enrollment_id.toLowerCase().includes(mainSearchTerm.toLowerCase()));
         return matchesExamFilter && matchesSearchTerm;
     });
 
-    // --- Action Buttons Component ---
+    const allEnrollmentsSelected = filteredEnrollments.length > 0 && selectedEnrollments.size === filteredEnrollments.length;
+
     const ActionButtons = ({ enrollment }) => (
         <div className="flex items-center gap-1 sm:gap-2">
             <button
@@ -699,13 +700,12 @@ const ExamEnrollment = () => {
         </div>
     );
 
-    // --- JSX ---
     return (
         <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
             <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Exam Enrollments</h2>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {selectedEnrollments.size > 0 && (
                             <button
                                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold shadow-sm"
@@ -724,7 +724,7 @@ const ExamEnrollment = () => {
                         </button>
                         <button
                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold shadow-sm"
-                            onClick={() => setModalOpen(true)}
+                            onClick={() => { setEditingEnrollment(null); setFormData(initialFormData); setModalOpen(true);}}
                         >
                             <Plus size={18} />
                             <span>Add Single</span>
@@ -738,7 +738,7 @@ const ExamEnrollment = () => {
                                 <span>Export</span>
                             </button>
                             {isExportMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10">
+                                <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10 border border-gray-200">
                                     <button
                                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                         onClick={() => handleExport('csv')}
@@ -764,9 +764,8 @@ const ExamEnrollment = () => {
                     </div>
                 )}
 
-                {/* Filter and Search Section */}
                 <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <label htmlFor="exam_filter" className="text-sm font-semibold text-gray-700">Filter by Exam:</label>
+                    <label htmlFor="exam_filter" className="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Exam:</label>
                     <select
                         id="exam_filter"
                         value={filterExamId}
@@ -790,13 +789,12 @@ const ExamEnrollment = () => {
                         </button>
                     )}
 
-                    {/* Main Table Search Box */}
                     <div className="relative flex-grow sm:ml-4 w-full sm:w-auto">
                         <label htmlFor="main_search" className="sr-only">Search Enrollments</label>
                         <input
                             type="text"
                             id="main_search"
-                            placeholder="Search by student or exam name..."
+                            placeholder="Search by student, exam, or ID..."
                             value={mainSearchTerm}
                             onChange={(e) => setMainSearchTerm(e.target.value)}
                             className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50 pl-10"
@@ -820,14 +818,15 @@ const ExamEnrollment = () => {
                                             className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" 
                                             onChange={handleSelectAllEnrollments} 
                                             checked={allEnrollmentsSelected} 
-                                            disabled={enrollments.length === 0}
+                                            disabled={filteredEnrollments.length === 0}
                                         />
                                     </th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Exam</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Exam Date</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">Exam</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">Exam Date</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled At</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Enrollment ID</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider md:table-cell">Enrollment ID</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -845,12 +844,14 @@ const ExamEnrollment = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{enrollment.student_name}</div>
-                                                <div className="text-xs text-gray-500 sm:hidden">{enrollment.exam_name}</div>
+                                                <div className="text-xs text-gray-500 sm:hidden">{enrollment.exam_name} ({enrollment.exam_date})</div>
+                                                <div className="text-xs text-gray-500 sm:hidden">Status: {enrollment.appearance_status_display}</div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{enrollment.exam_name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{enrollment.exam_date}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 sm:table-cell">{enrollment.exam_name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 sm:table-cell">{enrollment.exam_date}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{enrollment.appearance_status_display}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{enrollment.enrolled_at}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{enrollment.enrollment_id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 md:table-cell">{enrollment.enrollment_id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                                 <ActionButtons enrollment={enrollment} />
                                             </td>
@@ -858,7 +859,7 @@ const ExamEnrollment = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="7" className="text-center py-10 text-gray-500 text-lg">No enrollments found for the selected filter.</td>
+                                        <td colSpan="8" className="text-center py-10 text-gray-500 text-lg">No enrollments found for the selected filter.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -866,7 +867,6 @@ const ExamEnrollment = () => {
                     </div>
                 )}
                 
-                {/* Edit/Add Modal */}
                 {modalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
                         <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
@@ -876,6 +876,7 @@ const ExamEnrollment = () => {
                                     <label htmlFor="student_id" className="block text-sm font-semibold text-gray-700 mb-1">Student</label>
                                     <select 
                                         id="student_id" 
+                                        name="student_id"
                                         value={formData.student_id} 
                                         onChange={(e) => handleInputChange(e, "student_id")} 
                                         className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
@@ -893,6 +894,7 @@ const ExamEnrollment = () => {
                                     <label htmlFor="exam_id" className="block text-sm font-semibold text-gray-700 mb-1">Exam</label>
                                     <select 
                                         id="exam_id" 
+                                        name="exam_id"
                                         value={formData.exam_id} 
                                         onChange={(e) => handleInputChange(e, "exam_id")} 
                                         className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
@@ -911,6 +913,7 @@ const ExamEnrollment = () => {
                                     <input 
                                         type="datetime-local" 
                                         id="enrolled_at" 
+                                        name="enrolled_at"
                                         value={formData.enrolled_at} 
                                         onChange={(e) => handleInputChange(e, "enrolled_at")} 
                                         className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
@@ -938,7 +941,6 @@ const ExamEnrollment = () => {
                     </div>
                 )}
                 
-                {/* View Modal */}
                 {viewModalOpen && viewingEnrollment && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
                         <div ref={viewModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
@@ -954,6 +956,14 @@ const ExamEnrollment = () => {
                                     {viewingEnrollment.exam_description && (
                                         <p className="text-sm text-gray-600 ml-2">{viewingEnrollment.exam_description}</p>
                                     )}
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-800">Exam Date:</h4>
+                                    <p className="ml-2">{viewingEnrollment.exam_date}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-800">Appearance Status:</h4>
+                                    <p className="ml-2">{viewingEnrollment.appearance_status_display}</p>
                                 </div>
                                 <div>
                                     <h4 className="font-semibold text-gray-800">Enrollment ID:</h4>
@@ -976,7 +986,6 @@ const ExamEnrollment = () => {
                     </div>
                 )}
                 
-                {/* Bulk Enroll Modal */}
                 {bulkModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
                         <div ref={bulkModalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl h-[80vh] flex flex-col transform transition-all duration-300 scale-100 opacity-100">
@@ -1074,7 +1083,6 @@ const ExamEnrollment = () => {
                     </div>
                 )}
                 
-                {/* Confirmation Dialog */}
                 <ConfirmationDialog
                     isOpen={confirmDialogOpen}
                     title={dialogContent.title}
@@ -1083,12 +1091,11 @@ const ExamEnrollment = () => {
                     onCancel={dialogContent.onCancel}
                 />
                 
-                {/* Message Dialog */}
                 <MessageDialog
                     isOpen={messageDialogOpen}
                     title={dialogContent.title}
                     message={dialogContent.message}
-                    onClose={dialogContent.onClose}
+                    onClose={dialogContent.onClose || (() => setMessageDialogOpen(false))}
                 />
             </div>
         </div>
