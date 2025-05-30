@@ -7,6 +7,7 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
 
   const menuItems = [
     { name: "Dashboard", path: "/admin" },
+    { name: "Manage Courses", path: "/admin/courses" },
     { name: "Manage Students", path: "/admin/students" },
     { name: "Manage Exams", path: "/admin/exams" },
     { name: "Exam Enrollments", path: "/admin/exam-enrollments" },

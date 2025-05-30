@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 
-const Modal = ({ 
-  title, 
-  onClose, 
-  onSave, 
-  initialData = {}, 
-  fields = [], 
+const Modal = ({
+  title,
+  onClose,
+  onSave,
+  initialData = {},
+  fields = [],
   isLoading = false,
   error = null,
-  onChange
+  onChange,
+  modalWidthClass = "w-full max-w-md", // Default for centered modals
+  customPosition = null // New prop for custom positioning e.g., { top: '10vh', left: '35vw', right: '25vw', bottom: '10vh' }
 }) => {
   const [formData, setFormData] = useState({});
   const [localError, setLocalError] = useState(null);
@@ -20,13 +22,10 @@ const Modal = ({
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === "checkbox" ? checked : value;
-    
     setFormData((prevData) => ({
       ...prevData,
       [name]: newValue,
     }));
-
-    // Call external onChange if provided
     if (onChange) {
       onChange(e);
     }
@@ -35,26 +34,50 @@ const Modal = ({
   const handleSubmit = (e) => {
     e.preventDefault();
     setLocalError(null);
-
-    // Validate required fields
     const missingFields = fields
       .filter(field => field.required)
-      .filter(field => !formData[field.name] && formData[field.name] !== 0)
+      .filter(field => !formData[field.name] && formData[field.name] !== 0 && formData[field.name] !== false)
       .map(field => field.label);
 
     if (missingFields.length > 0) {
       setLocalError(`Please fill in: ${missingFields.join(", ")}`);
       return;
     }
-
     onSave(formData);
   };
 
+  const isCustomPositioned = customPosition && Object.keys(customPosition).length > 0;
+
+  const overlayClasses = `fixed inset-0 z-50 bg-gray-900 bg-opacity-50 p-4 overflow-y-auto ${
+    !isCustomPositioned ? 'flex items-center justify-center' : ''
+  }`;
+
+  let dialogStyle = {};
+  if (isCustomPositioned) {
+    dialogStyle = {
+      position: 'absolute',
+      top: customPosition.top,
+      left: customPosition.left,
+      right: customPosition.right,
+      bottom: customPosition.bottom,
+      // Width and height are implicitly defined by top/bottom/left/right
+    };
+  }
+
+  const dialogBaseClasses = "bg-white rounded-lg shadow-xl flex flex-col"; // Added flex flex-col
+  const dialogSizingClasses = isCustomPositioned 
+    ? "" // Sizing is handled by inline styles from customPosition
+    : modalWidthClass; // Use modalWidthClass for centered modals
+  const dialogMaxHeightClass = isCustomPositioned ? "" : "max-h-[90vh]"; // Apply max-h only if not custom positioned with bottom
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
+    <div className={overlayClasses}>
+      <div 
+        className={`${dialogBaseClasses} ${dialogSizingClasses} ${dialogMaxHeightClass}`}
+        style={isCustomPositioned ? dialogStyle : {}}
+      >
+        <div className="p-6 border-b border-gray-200"> {/* Header part */}
+          <div className="flex justify-between items-center">
             <h3 className="text-xl font-semibold text-gray-800">{title}</h3>
             <button
               onClick={onClose}
@@ -66,7 +89,9 @@ const Modal = ({
               </svg>
             </button>
           </div>
+        </div>
 
+        <div className="p-6 overflow-y-auto flex-grow"> {/* Content part, flex-grow for scroll */}
           {(error || localError) && (
             <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
               <p>{error || localError}</p>
@@ -89,12 +114,13 @@ const Modal = ({
                         value={formData[field.name] || ""}
                         onChange={handleChange}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                        disabled={isLoading}
+                        disabled={isLoading || field.disabled}
                         required={field.required}
                       >
+                        {field.placeholder && <option value="">{field.placeholder}</option>}
                         {field.options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
+                          <option key={option.value || option} value={option.value || option}>
+                            {option.label || option}
                           </option>
                         ))}
                       </select>
@@ -104,19 +130,24 @@ const Modal = ({
                         value={formData[field.name] || ""}
                         onChange={handleChange}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                        rows={3}
-                        disabled={isLoading}
+                        rows={field.rows || 3}
+                        disabled={isLoading || field.disabled}
                         required={field.required}
+                        placeholder={field.placeholder || ""}
                       />
                     ) : (
                       <input
                         type={field.type}
                         name={field.name}
-                        value={formData[field.name] || ""}
+                        value={formData[field.name] || (field.type === "number" ? "" : "")}
                         onChange={handleChange}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                        disabled={isLoading}
+                        disabled={isLoading || field.disabled}
                         required={field.required}
+                        placeholder={field.placeholder || ""}
+                        min={field.min}
+                        max={field.max}
+                        step={field.step}
                       />
                     )}
                   </div>
@@ -126,7 +157,7 @@ const Modal = ({
               )}
             </div>
 
-            <div className="mt-6 flex justify-end space-x-3">
+            <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-200"> {/* Footer part, added pt-4 and border-t */}
               <button
                 type="button"
                 onClick={onClose}
