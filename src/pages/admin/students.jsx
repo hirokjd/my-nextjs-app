@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
-import { databases, account } from "../../utils/appwrite";
-import { ID } from "appwrite";
-import { Plus, Edit, Trash2, Eye } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { databases, account, ID, Query } from "../../utils/appwrite";
+import { Plus, Edit, Trash2, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import Modal from "../../components/Modal";
+
+const STUDENTS_PER_PAGE = 20;
 
 const Students = () => {
   const [students, setStudents] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
@@ -12,25 +15,78 @@ const Students = () => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [user, setUser] = useState(null);
-  const modalRef = useRef(null);
-  const viewModalRef = useRef(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
+  const STUDENTS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID;
+  const COURSE_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_COURSE_COLLECTION_ID;
 
   const initialFormData = {
     name: "",
     email: "",
     password: "",
-    student_id: "",
     status: "active",
+    course_id: "",
+    student_id: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
 
-  useEffect(() => {
-    fetchStudents();
-    getUser();
-  }, []);
+  const fetchCourses = useCallback(async () => {
+    try {
+      const response = await databases.listDocuments(DATABASE_ID, COURSE_COLLECTION_ID, [
+        Query.equal("status", "active"),
+        Query.orderDesc("$createdAt"),
+      ]);
+      setCourses(response.documents);
+      return response.documents;
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      setError("Failed to fetch courses: " + error.message);
+      return [];
+    }
+  }, [DATABASE_ID, COURSE_COLLECTION_ID]);
 
-  const getUser = async () => {
+  const fetchStudents = useCallback(
+    async (coursesData) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await databases.listDocuments(DATABASE_ID, STUDENTS_COLLECTION_ID, [
+          Query.orderDesc("$createdAt"),
+        ]);
+
+        const formattedStudents = response.documents.map((student) => {
+          const course = coursesData.find((c) => c.$id === student.course_id);
+          return {
+            id: student.$id,
+            name: student.name,
+            email: student.email,
+            password: student.password,
+            student_id: student.student_id,
+            status: student.status,
+            course_id: student.course_id || null,
+            course_name: course?.course_name || "Not assigned",
+            registered_by: student.registered_by || "Unknown",
+            registered_date: student.registered_at
+              ? new Date(student.registered_at).toLocaleDateString()
+              : new Date(student.$createdAt).toLocaleDateString(),
+          };
+        });
+
+        setStudents(formattedStudents);
+      } catch (error) {
+        console.error("Error fetching students:", error);
+        setError("Failed to fetch students: " + error.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [DATABASE_ID, STUDENTS_COLLECTION_ID]
+  );
+
+  const getUser = useCallback(async () => {
     try {
       const loggedInUser = await account.get();
       setUser(loggedInUser);
@@ -38,50 +94,65 @@ const Students = () => {
       console.error("Error fetching user:", error);
       setError("Failed to fetch user information.");
     }
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const coursesData = await fetchCourses();
+        await Promise.all([fetchStudents(coursesData), getUser()]);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        setError("Failed to load initial data");
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [fetchCourses, fetchStudents, getUser]);
+
+  const generateStudentId = (courseId) => {
+    if (!courseId) return "";
+    const course = courses.find((c) => c.$id === courseId);
+    if (!course) return "";
+
+    const coursePrefix = course.course_name
+      .split(" ")
+      .map((word) => word.charAt(0))
+      .join("")
+      .toUpperCase();
+
+    const year = new Date().getFullYear();
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    return `${coursePrefix}-${year}-${randomNum}`;
   };
 
-  const fetchStudents = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await databases.listDocuments(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID
-      );
-
-      const formattedStudents = response.documents.map((student) => ({
-        id: student.$id,
-        name: student.name,
-        email: student.email,
-        password: student.password,
-        student_id: student.student_id,
-        status: student.status,
-        registered_by: student.registered_by || "Unknown",
-        registered_date: student.$createdAt
-          ? new Date(student.$createdAt).toLocaleDateString()
-          : "Not Available",
-      }));
-
-      setStudents(formattedStudents);
-    } catch (error) {
-      console.error("Error fetching students:", error);
-      setError("Failed to fetch students: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (e, field) => {
-    setFormData({ ...formData, [field]: e.target.value });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      const newFormData = { ...prev, [name]: value };
+      if (name === "course_id") {
+        newFormData.student_id = generateStudentId(value);
+      }
+      return newFormData;
+    });
+    if (error) setError(null);
   };
 
   const validateForm = () => {
-    if (!formData.name || !formData.email || !formData.student_id) {
-      setError("Please provide Name, Email, and Student ID.");
+    if (!formData.name.trim()) {
+      setError("Please provide a name");
+      return false;
+    }
+    if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email)) {
+      setError("Please provide a valid email");
+      return false;
+    }
+    if (!formData.course_id) {
+      setError("Please select a course");
       return false;
     }
     if (!editingStudent && !formData.password) {
-      setError("Password is required for new students.");
+      setError("Password is required for new students");
       return false;
     }
     return true;
@@ -94,39 +165,38 @@ const Students = () => {
     setError(null);
     try {
       const studentData = {
-        name: formData.name,
-        email: formData.email,
-        student_id: formData.student_id,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        student_id: formData.student_id || generateStudentId(formData.course_id),
         status: formData.status,
-        registered_by: user?.name || "Admin",
+        course_id: formData.course_id || null,
+        registered_by: user?.$id || "Admin",
+        registered_at: new Date().toISOString(),
       };
 
-      // Only include password if provided (for new students or when updating password)
       if (formData.password) {
         studentData.password = formData.password;
-      } else if (editingStudent) {
-        // Keep existing password if not changed
-        studentData.password = editingStudent.password;
       }
 
       if (editingStudent) {
         await databases.updateDocument(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-          process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID,
+          DATABASE_ID,
+          STUDENTS_COLLECTION_ID,
           editingStudent.id,
           studentData
         );
       } else {
         await databases.createDocument(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-          process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID,
+          DATABASE_ID,
+          STUDENTS_COLLECTION_ID,
           ID.unique(),
           studentData
         );
       }
 
       closeModal();
-      fetchStudents();
+      const coursesData = await fetchCourses();
+      await fetchStudents(coursesData);
     } catch (error) {
       console.error("Error saving student:", error);
       setError(`Error saving student: ${error.message}`);
@@ -136,22 +206,14 @@ const Students = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!user || !user.labels.includes("admin")) {
-      setError("You do not have permission to delete students.");
-      return;
-    }
-
     if (!window.confirm("Are you sure you want to delete this student?")) return;
 
     setLoading(true);
     setError(null);
     try {
-      await databases.deleteDocument(
-        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
-        process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID,
-        id
-      );
-      fetchStudents();
+      await databases.deleteDocument(DATABASE_ID, STUDENTS_COLLECTION_ID, id);
+      const coursesData = await fetchCourses();
+      await fetchStudents(coursesData);
       if (editingStudent && editingStudent.id === id) {
         closeModal();
       }
@@ -163,21 +225,23 @@ const Students = () => {
     }
   };
 
-  const handleEdit = (student) => {
-    setEditingStudent(student);
-    setFormData({
-      name: student.name,
-      email: student.email,
-      password: "", // Don't prefill password
-      student_id: student.student_id,
-      status: student.status,
-    });
+  const openModal = (student = null) => {
+    setError(null);
+    if (student) {
+      setEditingStudent(student);
+      setFormData({
+        name: student.name,
+        email: student.email,
+        password: "",
+        student_id: student.student_id,
+        status: student.status,
+        course_id: student.course_id || "",
+      });
+    } else {
+      setEditingStudent(null);
+      setFormData(initialFormData);
+    }
     setModalOpen(true);
-  };
-
-  const handleView = (student) => {
-    setViewingStudent(student);
-    setViewModalOpen(true);
   };
 
   const closeModal = () => {
@@ -187,283 +251,306 @@ const Students = () => {
     setError(null);
   };
 
+  const openViewModal = (student) => {
+    setViewingStudent(student);
+    setViewModalOpen(true);
+  };
+
   const closeViewModal = () => {
     setViewModalOpen(false);
     setViewingStudent(null);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        closeModal();
-      }
-      if (viewModalRef.current && !viewModalRef.current.contains(event.target)) {
-        closeViewModal();
-      }
-    };
+  const modalFields = [
+    { name: "name", label: "Full Name*", type: "text", required: true, placeholder: "Enter full name" },
+    { name: "email", label: "Email*", type: "email", required: true, placeholder: "Enter email" },
+    {
+      name: "password",
+      label: `Password${editingStudent ? "" : "*"}`,
+      type: "password",
+      required: !editingStudent,
+      placeholder: editingStudent ? "Leave blank to keep current" : "Enter password",
+    },
+    {
+      name: "course_id",
+      label: "Course*",
+      type: "select",
+      options: courses.map((course) => ({ value: course.$id, label: course.course_name })),
+      required: true,
+      disabled: courses.length === 0,
+    },
+    { name: "student_id", label: "Student ID", type: "text", readOnly: true },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      options: ["active", "inactive"],
+      required: true,
+    },
+  ];
 
-    if (modalOpen || viewModalOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [modalOpen, viewModalOpen]);
+  const modalPosition = {
+    top: "10vh",
+    bottom: "10vh",
+    left: "25vw",
+    right: "15vw",
+  };
 
-  const ActionButtons = ({ student }) => (
-    <div className="flex items-center gap-1 sm:gap-2">
-      <button
-        className="bg-gray-500 text-white p-1 rounded hover:bg-gray-600 transition-colors"
-        onClick={() => handleView(student)}
-        title="View"
-        aria-label="View student"
-      >
-        <Eye size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
-      </button>
-      <button
-        className="bg-yellow-500 text-white p-1 rounded hover:bg-yellow-600 transition-colors"
-        onClick={() => handleEdit(student)}
-        title="Edit"
-        aria-label="Edit student"
-      >
-        <Edit size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
-      </button>
-      <button
-        className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
-        onClick={() => handleDelete(student.id)}
-        title="Delete"
-        aria-label="Delete student"
-      >
-        <Trash2 size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
-      </button>
-    </div>
+  // Search and Pagination Logic
+  const searchedStudents = useMemo(() => {
+    if (!searchTerm) return students;
+    return students.filter(
+      (student) =>
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.student_id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [students, searchTerm]);
+
+  const totalPages = Math.ceil(searchedStudents.length / STUDENTS_PER_PAGE);
+  const indexOfLastStudent = currentPage * STUDENTS_PER_PAGE;
+  const indexOfFirstStudent = indexOfLastStudent - STUDENTS_PER_PAGE;
+  const displayedStudents = useMemo(
+    () => searchedStudents.slice(indexOfFirstStudent, indexOfLastStudent),
+    [searchedStudents, indexOfFirstStudent, indexOfLastStudent]
   );
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold">Manage Students</h2>
+    <div className="container mx-auto px-4 py-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">Student Management</h2>
+        <div className="relative w-full sm:w-auto">
+          <input
+            type="text"
+            placeholder="Search by name, email, or student ID..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full sm:w-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+        </div>
         <button
-          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded mb-2 sm:mb-0 transition-colors flex items-center gap-1 sm:gap-2 text-sm sm:text-base"
-          onClick={() => setModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          onClick={() => {
+            if (!user) {
+              setError("User data is still loading. Please wait before adding a student.");
+              return;
+            }
+            openModal();
+          }}
+          disabled={courses.length === 0 || !user}
         >
-          <Plus size={16} className="w-3 h-3 sm:w-4 sm:h-4" />
+          <Plus size={18} />
           <span>Add Student</span>
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
+      {error && !modalOpen && !viewModalOpen && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded shadow-md">
           <p>{error}</p>
         </div>
       )}
 
-      {loading ? (
+      {loading && !displayedStudents.length && !error ? (
         <div className="flex justify-center items-center h-64">
-          <p className="text-lg">Loading students...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-600">Loading students...</span>
+        </div>
+      ) : !displayedStudents.length && !error ? (
+        <div className="text-center py-10">
+          <p className="text-gray-500 text-lg">{searchTerm ? "No students match your search." : "No students found."}</p>
+          {!searchTerm && <p className="text-gray-400">Get started by adding a new student.</p>}
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <div className="inline-block min-w-full align-middle">
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Name
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell"
-                    >
-                      Email
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Student ID
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell"
-                    >
-                      Status
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell"
-                    >
-                      Registered By
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {students.map((student) => (
-                    <tr key={student.id}>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm font-medium text-gray-900">
-                        {student.name}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">
-                        {student.email}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
-                        {student.student_id}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden sm:table-cell">
+        <>
+          <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sr. No.
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Student ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Course
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {displayedStudents.map((student, index) => (
+                  <tr
+                    key={student.id}
+                    className={`hover:bg-gray-50 transition-colors ${
+                      student.status === "inactive" ? "bg-gray-100 opacity-70" : ""
+                    }`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {indexOfFirstStudent + index + 1}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {student.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
+                      {student.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {student.student_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {student.course_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          student.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}
+                      >
                         {student.status}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500 hidden md:table-cell">
-                        {student.registered_by}
-                      </td>
-                      <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-500">
-                        <ActionButtons student={student} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => openViewModal(student)}
+                          className="text-gray-600 hover:text-gray-900 transition-colors"
+                          title="View Student"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={() => openModal(student)}
+                          className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                          title="Edit Student"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(student.id)}
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                          title="Delete Student"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center items-center space-x-2">
+              <button
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2 rounded-md bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => paginate(page)}
+                  className={`px-4 py-2 rounded-md text-sm ${
+                    currentPage === page ? "bg-blue-600 text-white" : "bg-gray-200 hover:bg-gray-300"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-md bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Edit/Add Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
-          <div ref={modalRef} className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">
-              {editingStudent ? "Edit Student" : "Add Student"}
-            </h3>
-            <form>
-              <div className="mb-4">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange(e, "name")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange(e, "email")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange(e, "password")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder={editingStudent ? "Leave blank to keep current" : ""}
-                  required={!editingStudent}
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">
-                  Student ID
-                </label>
-                <input
-                  type="text"
-                  id="student_id"
-                  value={formData.student_id}
-                  onChange={(e) => handleInputChange(e, "student_id")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  required
-                  disabled={editingStudent}
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                  Status
-                </label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => handleInputChange(e, "status")}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
-                  disabled={loading}
-                >
-                  {loading ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal
+          title={editingStudent ? "Edit Student" : "Add New Student"}
+          onClose={closeModal}
+          onSave={() => handleSave()}
+          initialData={formData}
+          fields={modalFields}
+          isLoading={loading}
+          error={error}
+          onChange={handleInputChange}
+          customPosition={modalPosition}
+        />
       )}
 
-      {/* View Modal */}
-      {viewModalOpen && (
-        <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
-          <div ref={viewModalRef} className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">View Student</h3>
-            <div className="mb-4">
-              <p>
-                <strong>Name:</strong> {viewingStudent.name}
-              </p>
-              <p>
-                <strong>Email:</strong> {viewingStudent.email}
-              </p>
-              <p>
-                <strong>Student ID:</strong> {viewingStudent.student_id}
-              </p>
-              <p>
-                <strong>Status:</strong> {viewingStudent.status}
-              </p>
-              <p>
-                <strong>Registered By:</strong> {viewingStudent.registered_by}
-              </p>
-              <p>
-                <strong>Registered Date:</strong> {viewingStudent.registered_date}
-              </p>
+      {viewModalOpen && viewingStudent && (
+        <div className="fixed inset-0 z-50 bg-gray-900 bg-opacity-75 transition-opacity flex items-center justify-center">
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 overflow-y-auto"
+            style={{ position: "fixed", top: modalPosition.top, left: modalPosition.left, right: modalPosition.right, bottom: modalPosition.bottom }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">Student Details</h3>
+              <button onClick={closeViewModal} className="text-gray-500 hover:text-gray-700" aria-label="Close modal">
+                <XCircle size={24} />
+              </button>
             </div>
-            <div className="flex justify-end">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingStudent.name}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingStudent.email}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Student ID:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingStudent.student_id}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Course:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingStudent.course_name}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded capitalize">{viewingStudent.status}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Registered By:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingStudent.registered_by}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Registration Date:</label>
+                <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingStudent.registered_date}</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
               <button
                 onClick={closeViewModal}
-                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors"
               >
                 Close
               </button>
@@ -474,5 +561,24 @@ const Students = () => {
     </div>
   );
 };
+
+const XCircle = ({ size = 24, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="15" y1="9" x2="9" y2="15"></line>
+    <line x1="9" y1="9" x2="15" y2="15"></line>
+  </svg>
+);
 
 export default Students;
