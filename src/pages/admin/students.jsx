@@ -421,7 +421,7 @@ const Students = () => {
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
       <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Exam Enrollments</h2>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Manage Students</h2>
           <div className="flex flex-wrap gap-2">
             {selectedStudents.length > 0 && (
               <button
