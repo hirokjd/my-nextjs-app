@@ -91,89 +91,6 @@
             "indexes": []
         },
         {
-            "$id": "students",
-            "$permissions": [],
-            "databaseId": "67a5a946002e8a51f8fe",
-            "name": "Students",
-            "enabled": true,
-            "documentSecurity": false,
-            "attributes": [
-                {
-                    "key": "student_id",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "size": 36,
-                    "default": null
-                },
-                {
-                    "key": "name",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "email",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "format": "email",
-                    "default": null
-                },
-                {
-                    "key": "password",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "status",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "elements": [
-                        "active",
-                        "inactive"
-                    ],
-                    "format": "enum",
-                    "default": null
-                },
-                {
-                    "key": "registered_at",
-                    "type": "datetime",
-                    "required": true,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
-                    "key": "registered_by",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "size": 36,
-                    "default": null
-                }
-            ],
-            "indexes": [
-                {
-                    "key": "index_1",
-                    "type": "unique",
-                    "status": "available",
-                    "attributes": [
-                        "student_id"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
-                }
-            ]
-        },
-        {
             "$id": "questions",
             "$permissions": [
                 "create(\"label:admin\")",
@@ -282,13 +199,117 @@
             ]
         },
         {
+            "$id": "students",
+            "$permissions": [
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")",
+                "read(\"any\")",
+                "read(\"guests\")"
+            ],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Students",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "student_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "email",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "format": "email",
+                    "default": null
+                },
+                {
+                    "key": "password",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "elements": [
+                        "active",
+                        "inactive"
+                    ],
+                    "format": "enum",
+                    "default": null
+                },
+                {
+                    "key": "registered_at",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "registered_by",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null
+                },
+                {
+                    "key": "course_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "course",
+                    "relationType": "manyToOne",
+                    "twoWay": false,
+                    "twoWayKey": "6839a5d5000c5f79ccc7",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "index_1",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "student_id"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
             "$id": "exams",
             "$permissions": [
                 "read(\"users\")",
                 "create(\"label:admin\")",
                 "read(\"label:admin\")",
                 "update(\"label:admin\")",
-                "delete(\"label:admin\")"
+                "delete(\"label:admin\")",
+                "read(\"any\")",
+                "read(\"guests\")"
             ],
             "databaseId": "67a5a946002e8a51f8fe",
             "name": "Exams",
@@ -389,61 +410,17 @@
             ]
         },
         {
-            "$id": "exam_questions",
-            "$permissions": [],
-            "databaseId": "67a5a946002e8a51f8fe",
-            "name": "Exam Questions",
-            "enabled": true,
-            "documentSecurity": false,
-            "attributes": [
-                {
-                    "key": "exam_id",
-                    "type": "relationship",
-                    "required": false,
-                    "array": false,
-                    "relatedCollection": "exams",
-                    "relationType": "manyToMany",
-                    "twoWay": false,
-                    "twoWayKey": "examQuestions",
-                    "onDelete": "setNull",
-                    "side": "parent"
-                },
-                {
-                    "key": "question_id",
-                    "type": "relationship",
-                    "required": false,
-                    "array": false,
-                    "relatedCollection": "questions",
-                    "relationType": "manyToMany",
-                    "twoWay": false,
-                    "twoWayKey": "67da65f300306a8cdb1d",
-                    "onDelete": "setNull",
-                    "side": "parent"
-                },
-                {
-                    "key": "order",
-                    "type": "integer",
-                    "required": true,
-                    "array": false,
-                    "min": -9223372036854775808,
-                    "max": 9223372036854775807,
-                    "default": null
-                },
-                {
-                    "key": "marks",
-                    "type": "integer",
-                    "required": true,
-                    "array": false,
-                    "min": -9223372036854775808,
-                    "max": 9223372036854775807,
-                    "default": null
-                }
-            ],
-            "indexes": []
-        },
-        {
             "$id": "exam_enrollments",
-            "$permissions": [],
+            "$permissions": [
+                "read(\"any\")",
+                "update(\"any\")",
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")",
+                "read(\"guests\")",
+                "update(\"guests\")"
+            ],
             "databaseId": "67a5a946002e8a51f8fe",
             "name": "Exam Enrollments",
             "enabled": true,
@@ -488,6 +465,18 @@
                     "array": false,
                     "format": "",
                     "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "elements": [
+                        "appeared",
+                        "not_appeared"
+                    ],
+                    "format": "enum",
+                    "default": null
                 }
             ],
             "indexes": [
@@ -506,7 +495,13 @@
         },
         {
             "$id": "results",
-            "$permissions": [],
+            "$permissions": [
+                "read(\"any\")",
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")"
+            ],
             "databaseId": "67a5a946002e8a51f8fe",
             "name": "Results",
             "enabled": true,
@@ -620,15 +615,81 @@
             "indexes": []
         },
         {
-            "$id": "exam_attempts",
-            "$permissions": [],
+            "$id": "exam_questions",
+            "$permissions": [
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")",
+                "read(\"any\")"
+            ],
             "databaseId": "67a5a946002e8a51f8fe",
-            "name": "Exam Attempts",
+            "name": "Exam Questions",
             "enabled": true,
             "documentSecurity": false,
             "attributes": [
                 {
-                    "key": "attempt_id",
+                    "key": "exam_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "exams",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "examQuestions",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "question_id",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "questions",
+                    "relationType": "manyToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67da65f300306a8cdb1d",
+                    "onDelete": "setNull",
+                    "side": "parent"
+                },
+                {
+                    "key": "order",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807,
+                    "default": null
+                },
+                {
+                    "key": "marks",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": -10,
+                    "max": 10,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "responses",
+            "$permissions": [
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")",
+                "read(\"any\")",
+                "read(\"label:student\")"
+            ],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "Responses",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "response_id",
                     "type": "string",
                     "required": true,
                     "array": false,
@@ -641,9 +702,9 @@
                     "required": false,
                     "array": false,
                     "relatedCollection": "students",
-                    "relationType": "manyToMany",
+                    "relationType": "manyToOne",
                     "twoWay": false,
-                    "twoWayKey": "67da66dc003423124762",
+                    "twoWayKey": "67ecf750002440ac648a",
                     "onDelete": "setNull",
                     "side": "parent"
                 },
@@ -653,9 +714,9 @@
                     "required": false,
                     "array": false,
                     "relatedCollection": "exams",
-                    "relationType": "manyToMany",
+                    "relationType": "manyToOne",
                     "twoWay": false,
-                    "twoWayKey": "67da66fc0003a1afe034",
+                    "twoWayKey": "67ecf764000cd0894538",
                     "onDelete": "setNull",
                     "side": "parent"
                 },
@@ -665,9 +726,9 @@
                     "required": false,
                     "array": false,
                     "relatedCollection": "questions",
-                    "relationType": "manyToMany",
+                    "relationType": "manyToOne",
                     "twoWay": false,
-                    "twoWayKey": "67da670d000c175fdba9",
+                    "twoWayKey": "67ecf77f0010d7e1b4dd",
                     "onDelete": "setNull",
                     "side": "parent"
                 },
@@ -676,48 +737,103 @@
                     "type": "integer",
                     "required": true,
                     "array": false,
-                    "min": 1,
-                    "max": 4,
+                    "min": 0,
+                    "max": 3,
                     "default": null
                 },
                 {
-                    "key": "is_correct",
+                    "key": "marked_for_review",
                     "type": "boolean",
-                    "required": true,
+                    "required": false,
                     "array": false,
                     "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "course",
+            "$permissions": [
+                "read(\"any\")",
+                "read(\"guests\")",
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")"
+            ],
+            "databaseId": "67a5a946002e8a51f8fe",
+            "name": "course",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "course_name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null
                 },
                 {
-                    "key": "score",
+                    "key": "course_description",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 1000,
+                    "default": null
+                },
+                {
+                    "key": "credit",
                     "type": "integer",
-                    "required": true,
+                    "required": false,
                     "array": false,
                     "min": -9223372036854775808,
                     "max": 9223372036854775807,
                     "default": null
                 },
                 {
-                    "key": "attempted_at",
-                    "type": "datetime",
-                    "required": true,
+                    "key": "created_by",
+                    "type": "string",
+                    "required": false,
                     "array": false,
-                    "format": "",
+                    "size": 36,
                     "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "elements": [
+                        "active",
+                        "inactive"
+                    ],
+                    "format": "enum",
+                    "default": "active"
                 }
             ],
-            "indexes": [
-                {
-                    "key": "index_1",
-                    "type": "unique",
-                    "status": "available",
-                    "attributes": [
-                        "attempt_id"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
-                }
-            ]
+            "indexes": []
+        }
+    ],
+    "buckets": [
+        {
+            "$id": "questions",
+            "$permissions": [
+                "create(\"label:admin\")",
+                "read(\"label:admin\")",
+                "update(\"label:admin\")",
+                "delete(\"label:admin\")",
+                "read(\"any\")",
+                "read(\"label:student\")"
+            ],
+            "fileSecurity": false,
+            "name": "Questions",
+            "enabled": true,
+            "maximumFileSize": 50000000,
+            "allowedFileExtensions": [],
+            "compression": "none",
+            "encryption": true,
+            "antivirus": true
         }
     ]
 }

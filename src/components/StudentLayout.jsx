@@ -2,17 +2,15 @@ import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { LayoutDashboard, FileText, BarChart2 } from 'lucide-react';
 
 const StudentLayout = ({ children, sidebarOpen, toggleSidebar }) => {
   const router = useRouter();
 
   const menuItems = [
-    { name: 'Dashboard', path: '/student/' },
-    { name: 'Exams', path: '/student/exams' },
-    { name: 'Results', path: '/student/results' },
-    // { name: 'Certificates', path: '/student/certificates' },
-    // { name: 'Notifications', path: '/student/notifications' },
-    // { name: 'Contact Support', path: '/student/contact-support' },
+    { name: 'Dashboard', path: '/student/', icon: LayoutDashboard },
+    { name: 'Exams', path: '/student/exams', icon: FileText },
+    { name: 'Results', path: '/student/results', icon: BarChart2 },
   ];
 
   return (
@@ -22,39 +20,42 @@ const StudentLayout = ({ children, sidebarOpen, toggleSidebar }) => {
         <meta name="description" content="Student examination portal" />
       </Head>
 
-      {/* Sidebar with professional slate blue color */}
-      <aside className={`w-64 bg-slate-700 text-white fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 transition-all duration-300 ease-in-out ${
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      } md:translate-x-0`}>
-        <div className="p-4 md:p-6 h-full overflow-y-auto">
-          <h2 className="text-xl font-bold mb-6">Student Portal</h2>
-          <nav className="space-y-2">
+      {/* Sidebar - Light-themed, matching AdminLayout */}
+      <aside
+        className={`w-64 bg-white text-gray-700 fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 transition-all duration-300 ease-in-out border-r border-gray-200 shadow-sm ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}
+      >
+        <div className="p-4 sm:p-6 h-full overflow-y-auto">
+          <h2 className="text-xl font-extrabold text-gray-800 mb-6">Student Portal</h2>
+          <nav className="space-y-1">
             {menuItems.map((item) => (
-              <Link 
-                key={item.path} 
+              <Link
+                key={item.path}
                 href={item.path}
                 shallow={true}
-                className={`block py-2 px-4 rounded transition-colors duration-200 ${
+                className={`flex items-center gap-3 py-2 px-4 rounded-md transition-colors duration-200 text-base font-semibold ${
                   router.pathname === item.path
-                    ? 'bg-slate-100 text-slate-800 font-semibold'
-                    : 'text-slate-200 hover:bg-slate-600 hover:text-white'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                {item.name}
+                <item.icon size={20} className="shrink-0" />
+                <span>{item.name}</span>
               </Link>
             ))}
           </nav>
         </div>
       </aside>
 
-      {/* Main Content - Unchanged except for color adjustment */}
-      <main className={`flex-1 transition-all duration-300 ease-in-out ${
-        sidebarOpen ? "ml-64" : "ml-0"
-      } md:ml-64`}>
-        <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
-          <div className="container mx-auto">
-            {children}
-          </div>
+      {/* Main Content - Adjusted for fixed sidebar with bg-gray-100 */}
+      <main
+        className={`flex-1 transition-all duration-300 ease-in-out ${
+          sidebarOpen ? 'ml-64' : 'ml-0'
+        } md:ml-64`}
+      >
+        <div className="p-4 sm:p-6 bg-gray-100 min-h-[calc(100vh-4rem)]">
+          <div className="container mx-auto">{children}</div>
         </div>
       </main>
     </>

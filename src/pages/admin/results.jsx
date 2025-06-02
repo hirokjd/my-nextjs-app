@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { databases, storage, Query } from '../../utils/appwrite';
-import { Eye, Search, Download, RefreshCw } from 'lucide-react';
+import { Eye, Search, Download, RefreshCw, X } from 'lucide-react';
 
 const BUCKET_ID = 'questions';
 
@@ -30,7 +30,6 @@ const ResultsAnalysisPage = () => {
   const responsesCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID;
   const resultsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_RESULTS_COLLECTION_ID;
 
-  // Helper to resolve relationship IDs
   const resolveRelationshipId = (field) => {
     if (!field) return null;
     if (typeof field === 'object' && field?.$id) return field.$id;
@@ -40,7 +39,6 @@ const ResultsAnalysisPage = () => {
     return null;
   };
 
-  // Fetch image URL from Appwrite storage
   const getFileUrl = async (fileId) => {
     try {
       return storage.getFileView(BUCKET_ID, fileId);
@@ -50,7 +48,6 @@ const ResultsAnalysisPage = () => {
     }
   };
 
-  // Fetch question marks from exam_questions
   const getQuestionMarks = (questionId) => {
     const mapping = examQuestions.find(eq => {
       const qRef = eq.question_id;
@@ -60,7 +57,6 @@ const ResultsAnalysisPage = () => {
     return mapping?.marks || 0;
   };
 
-  // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -78,16 +74,15 @@ const ResultsAnalysisPage = () => {
     }
   };
 
-  // Format duration for display
   const formatDuration = (minutes) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  // Fetch all initial data (results, students, exams)
   const fetchAllData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [resultsResponse, studentsResponse, examsResponse] = await Promise.all([
         databases.listDocuments(databaseId, resultsCollectionId),
@@ -135,20 +130,18 @@ const ResultsAnalysisPage = () => {
       setStudents(studentsResponse.documents);
       setExams(examsResponse.documents);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to fetch data.');
       console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch response data when viewing a result
   const fetchResponseData = async (result) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch exam questions
       const examQuestionsResponse = await databases.listDocuments(
         databaseId,
         examQuestionsCollectionId,
@@ -163,7 +156,6 @@ const ResultsAnalysisPage = () => {
 
       setExamQuestions(filteredExamQuestions);
 
-      // Fetch responses
       const responsesResponse = await databases.listDocuments(
         databaseId,
         responsesCollectionId,
@@ -175,7 +167,6 @@ const ResultsAnalysisPage = () => {
 
       setResponses(responsesResponse.documents);
 
-      // Fetch questions
       const questionIds = responsesResponse.documents
         .map((res) => resolveRelationshipId(res.question_id))
         .filter((id) => id);
@@ -207,7 +198,6 @@ const ResultsAnalysisPage = () => {
     }
   };
 
-  // Handle export functionality
   const handleExport = async (format) => {
     setIsExportMenuOpen(false);
     if (filteredResults.length === 0) {
@@ -250,14 +240,12 @@ const ResultsAnalysisPage = () => {
     }
   };
 
-  // Handle view button click
   const handleView = (result) => {
     setViewingResult(result);
     setViewModalOpen(true);
     fetchResponseData(result);
   };
 
-  // Close view modal
   const closeViewModal = () => {
     setViewModalOpen(false);
     setViewingResult(null);
@@ -266,7 +254,6 @@ const ResultsAnalysisPage = () => {
     setExamQuestions([]);
   };
 
-  // Filter results based on search and filters
   const filteredResults = results.filter(result => {
     const matchesSearch = 
       result.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -306,7 +293,7 @@ const ResultsAnalysisPage = () => {
   const ActionButtons = ({ result }) => (
     <div className="flex items-center gap-1 sm:gap-2">
       <button
-        className="bg-gray-500 text-white p-1.5 rounded-md hover:bg-gray-600 transition-colors sm:p-2"
+        className="bg-gray-500 text-white p-1 rounded-md hover:bg-gray-600 transition-colors duration-200"
         onClick={() => handleView(result)}
         title="View"
         aria-label="View result"
@@ -320,25 +307,25 @@ const ResultsAnalysisPage = () => {
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
       <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-600 sm:text-gray-800">Exam Results</h2>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Exam Enrollments</h2>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={fetchAllData}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold sm:text-sm shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold shadow-sm"
               disabled={loading}
             >
               <RefreshCw size={18} /> Refresh
             </button>
             <div className="relative" ref={exportButtonRef}>
               <button
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold sm:text-sm shadow-sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold shadow-sm"
                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
               >
                 <Download size={18} />
                 <span>Export</span>
               </button>
               {isExportMenuOpen && (
-                <div className="absolute right-0 bg-white rounded-md shadow-lg mt-2 w-32 border border-gray-200 z-50">
+                <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-50 border border-gray-200">
                   <button
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => handleExport("csv")}
@@ -357,142 +344,131 @@ const ResultsAnalysisPage = () => {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-6" role="alert">
+        {error && !viewModalOpen && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
             <strong className="font-bold">Error:</strong>
             <span className="block sm:inline ml-2">{error}</span>
           </div>
         )}
 
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative">
-              <label htmlFor="search" className="block text-sm font-semibold text-gray-700 mb-1">Search</label>
-              <input
-                type="text"
-                id="search"
-                placeholder="Search by student or exam..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="mt-1 block w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50 pl-10 text-gray-800 max-w-xl"
-              />
-              <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 mt-0.5" />
-            </div>
-            <div className="flex gap-4">
-              <div>
-                <label htmlFor="exam_filter" className="block text-sm font-semibold text-gray-700 mb-1">Exam</label>
-                <select
-                  id="exam_filter"
-                  value={examFilter}
-                  onChange={(e) => setExamFilter(e.target.value)}
-                  className="mt-1 block w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50 text-gray-800 min-w-[180px]"
-                >
-                  <option value="All">All Exams</option>
-                  {exams.map(exam => (
-                    <option key={exam.$id} value={exam.$id}>
-                      {exam.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="status_filter" className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
-                <select
-                  id="status_filter"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="mt-1 block w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50 text-gray-800"
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Pass">Passed</option>
-                  <option value="Fail">Failed</option>
-                </select>
-              </div>
-            </div>
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="relative flex-grow sm:ml-0 w-full sm:w-auto">
+            <label htmlFor="main_search" className="sr-only">Search Results</label>
+            <input
+              type="text"
+              id="main_search"
+              placeholder="Search by student or exam..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50 pl-10"
+            />
+            <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 mt-0.5" />
           </div>
+          <label htmlFor="exam_filter" className="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Exam:</label>
+          <select
+            id="exam_filter"
+            value={examFilter}
+            onChange={(e) => setExamFilter(e.target.value)}
+            className="mt-1 block w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50"
+          >
+            <option value="All">All Exams</option>
+            {exams.map(exam => (
+              <option key={exam.$id} value={exam.$id}>
+                {exam.name}
+              </option>
+            ))}
+          </select>
+          {examFilter !== 'All' && (
+            <button
+              onClick={() => setExamFilter('All')}
+              className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-300 transition-colors duration-200 flex items-center gap-1 text-sm shadow-sm"
+            >
+              <X size={16} />
+              Clear Exam
+            </button>
+          )}
+          <label htmlFor="status_filter" className="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Status:</label>
+          <select
+            id="status_filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="mt-1 block w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Pass">Passed</option>
+            <option value="Fail">Failed</option>
+          </select>
+          {statusFilter !== 'All' && (
+            <button
+              onClick={() => setStatusFilter('All')}
+              className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-300 transition-colors duration-200 flex items-center gap-1 text-sm shadow-sm"
+            >
+              <X size={16} />
+              Clear Status
+            </button>
+          )}
         </div>
 
         {loading && !viewModalOpen ? (
           <div className="flex justify-center items-center h-64">
-            <p className="text-lg text-gray-600">Loading results...</p>
+            <p className="text-xl text-gray-600">Loading...</p>
+          </div>
+        ) : filteredResults.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500 text-lg">{searchTerm || examFilter !== 'All' || statusFilter !== 'All' ? "No results match your search or filter." : "No results found."}</p>
+            {!searchTerm && examFilter === 'All' && statusFilter === 'All' && <p className="text-gray-400">Data may be loading or unavailable.</p>}
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white rounded-lg shadow">
-            <div className="inline-block min-w-full align-middle">
-              <div className="overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Student
-                      </th>
-                      <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                        Exam
-                      </th>
-                      <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Score
-                      </th>
-                      <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                        Status
-                      </th>
-                      <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                        Date
-                      </th>
-                      <th scope="col" className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredResults.map((result) => (
-                      <tr key={result.$id}>
-                        <td className="px-3 py-2 sm:px-6 sm:py-4 text-sm font-medium text-gray-900">
-                          {result.studentName}
-                          <div className="text-xs text-gray-500 sm:hidden">{result.examName}</div>
-                        </td>
-                        <td className="px-3 py-2 sm:px-6 sm:py-4 text-sm text-gray-500 hidden sm:table-cell">
-                          {result.examName}
-                        </td>
-                        <td className="px-3 py-2 sm:px-6 sm:py-4 text-sm text-gray-500">
-                          {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)
-                        </td>
-                        <td className="px-3 py-2 sm:px-6 sm:py-4 text-sm text-gray-500 hidden sm:table-cell">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            result.status === 'passed' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {result.status.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 sm:px-6 sm:py-4 text-sm text-gray-500 hidden md:table-cell">
-                          {result.createdDate}
-                        </td>
-                        <td className="px-3 py-2 sm:px-6 sm:py-4 text-sm text-gray-500">
-                          <ActionButtons result={result} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <div className="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Exam</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredResults.map((result) => (
+                  <tr key={result.$id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {result.studentName}
+                      <div className="text-sm text-gray-500 sm:hidden">{result.examName}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 hidden sm:table-cell">
+                      {result.examName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {result.score}/{result.total_marks} ({result.percentage?.toFixed(1)}%)
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 hidden sm:table-cell">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        result.status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {result.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell whitespace-nowrap">
+                      {result.createdDate}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <ActionButtons result={result} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
-        {filteredResults.length === 0 && !loading && (
-          <div className="text-center py-8">
-            <p className="text-gray-600 text-base sm:text-lg">No results found matching your criteria</p>
-          </div>
-        )}
-
-        {/* View Modal */}
         {viewModalOpen && viewingResult && (
           <div className="fixed inset-0 flex justify-center items-start z-50 bg-black bg-opacity-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full m-4">
               <h3 className="text-xl font-bold mb-4">Result Details - {viewingResult.examName}</h3>
               
-              {/* Result Summary */}
               <div className="bg-white p-6 rounded-lg shadow mb-6">
                 <h2 className="text-lg font-semibold mb-4">Result Summary</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -504,9 +480,7 @@ const ResultsAnalysisPage = () => {
                     <p className="text-sm text-gray-600">Percentage</p>
                     <p className="text-lg font-semibold">{viewingResult.percentage.toFixed(1)}%</p>
                   </div>
-                  <div className={`p-4 rounded-lg ${
-                    viewingResult.status === 'passed' ? 'bg-green-50' : 'bg-red-50'
-                  }`}>
+                  <div className={`p-4 rounded-lg ${viewingResult.status === 'passed' ? 'bg-green-50' : 'bg-red-50'}`}>
                     <p className="text-sm text-gray-600">Status</p>
                     <p className="text-lg font-semibold capitalize">{viewingResult.status}</p>
                   </div>
@@ -525,7 +499,6 @@ const ResultsAnalysisPage = () => {
                 </div>
               </div>
 
-              {/* Responses */}
               <div className="bg-white p-6 rounded-lg shadow">
                 <h2 className="text-lg font-semibold mb-4">Student Responses</h2>
                 {loading ? (
@@ -606,7 +579,7 @@ const ResultsAnalysisPage = () => {
                             </div>
                           </div>
                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {question.options_text.map((option, optIndex) => {
+                            {question.optionsText?.map((option, optIndex) => {
                               const isSelected = parseInt(response.selected_option) === optIndex;
                               const isCorrectOption = parseInt(question.correct_answer) === optIndex;
                               return (
@@ -701,7 +674,7 @@ const ResultsAnalysisPage = () => {
               <div className="flex justify-end mt-4">
                 <button
                   onClick={closeViewModal}
-                  className="bg-gray-500 text-white px-3 py-1.5 rounded-md hover:bg-gray-600 transition-colors sm:text-sm"
+                  className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
                 >
                   Close
                 </button>

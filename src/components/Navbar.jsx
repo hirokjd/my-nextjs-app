@@ -67,7 +67,7 @@ const Navbar = ({ isAdmin = false }) => {
   return (
     <>
       <Head>
-        <title>Online Exam Portal</title>
+        <title>Online Exam Portal - Nielit Tezpur EC</title>
         <link rel="icon" href="https://mimitmalout.ac.in/NIELIT.png" />
       </Head>
 
@@ -85,7 +85,7 @@ const Navbar = ({ isAdmin = false }) => {
             className="h-8 w-8"
           />
           <span className="text-lg font-semibold text-[#1e293b] hidden sm:inline">
-            Online Exam Portal
+            Online Exam Portal - Nielit Tezpur EC
           </span>
         </motion.div>
 

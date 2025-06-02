@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiBook, FiAward, FiUser, FiCalendar, FiClock, FiBarChart2 } from 'react-icons/fi';
+import { FiBook, FiAward, FiCalendar, FiClock, FiBarChart2, FiX } from 'react-icons/fi';
 import { databases, Query } from '../../utils/appwrite';
 import { getCurrentStudentSession } from '../../utils/auth';
 import { useRouter } from 'next/router';
@@ -12,6 +12,8 @@ const StudentDashboard = () => {
   const [recentResults, setRecentResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedExam, setSelectedExam] = useState(null);
 
   const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
   const studentsCollectionId = process.env.NEXT_PUBLIC_APPWRITE_STUDENTS_COLLECTION_ID;
@@ -33,14 +35,12 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Check student session
         const session = getCurrentStudentSession();
         if (!session?.email) {
           router.push('/login');
           return;
         }
 
-        // Query 1: Get student by email
         const studentQueryParams = {
           databaseId,
           collectionId: studentsCollectionId,
@@ -78,7 +78,6 @@ const StudentDashboard = () => {
           studentId: student.$id,
         });
 
-        // Query 2: Get all enrollments and filter client-side
         const enrollmentsQueryParams = {
           databaseId,
           collectionId: enrollmentsCollectionId,
@@ -101,10 +100,8 @@ const StudentDashboard = () => {
           throw err;
         }
 
-        // Filter enrollments for current student
         const filteredEnrollments = enrollmentsResponse.documents.filter(enrollment => {
           const studentRef = enrollment.student_id;
-          
           if (Array.isArray(studentRef)) {
             return studentRef.some(s => s.$id === student.$id);
           } else if (typeof studentRef === 'object' && studentRef !== null) {
@@ -120,7 +117,6 @@ const StudentDashboard = () => {
           enrollments: filteredEnrollments
         });
 
-        // Query 3: Get all exams
         const examsQueryParams = {
           databaseId,
           collectionId: examsCollectionId,
@@ -143,7 +139,6 @@ const StudentDashboard = () => {
           throw err;
         }
 
-        // Get upcoming exams (future dates)
         const now = new Date();
         const studentUpcomingExams = examsResponse.documents.filter(exam => {
           const examId = exam.$id;
@@ -163,12 +158,11 @@ const StudentDashboard = () => {
           name: exam.name,
           date: exam.exam_date,
           duration: exam.duration,
-          description: exam.description
+          description: exam.description || 'No description available' // Include description for modal
         }));
 
         setUpcomingExams(studentUpcomingExams);
 
-        // Query 4: Get all results and filter client-side
         const resultsQueryParams = {
           databaseId,
           collectionId: resultsCollectionId,
@@ -191,7 +185,6 @@ const StudentDashboard = () => {
           throw err;
         }
 
-        // Filter results for current student and sort by date
         const studentResults = resultsResponse.documents
           .filter(result => {
             const studentRef = result.student_id;
@@ -204,14 +197,12 @@ const StudentDashboard = () => {
             }
           })
           .sort((a, b) => new Date(b.attempted_at) - new Date(a.attempted_at))
-          .slice(0, 3); // Get only the 3 most recent
+          .slice(0, 3);
 
-        // Get exam details for each result
         const resultsWithExamDetails = await Promise.all(
           studentResults.map(async (result) => {
             const examId = result.exam_id?.$id || result.exam_id;
             const exam = examsResponse.documents.find(e => e.$id === examId);
-            
             const percentage = Math.round((result.score / result.total_marks) * 100);
             return {
               id: result.$id,
@@ -260,35 +251,25 @@ const StudentDashboard = () => {
   };
 
   const formatDuration = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    return `${minutes} min`; // Show duration in minutes only
   };
 
-  const refreshData = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const session = getCurrentStudentSession();
-      if (session?.email) {
-        await fetchDashboardData();
-      } else {
-        router.push('/login');
-      }
-    } catch (err) {
-      console.error('Refresh error:', err);
-      setError('Failed to refresh data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleViewDetails = (exam) => {
+    setSelectedExam(exam);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedExam(null);
   };
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 py-8 font-inter">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="ml-3">Loading your dashboard...</span>
+          <span className="ml-3 text-gray-600">Loading your dashboard...</span>
         </div>
       </div>
     );
@@ -296,12 +277,12 @@ const StudentDashboard = () => {
 
   if (!studentInfo) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+      <div className="container mx-auto px-4 sm:px-6 py-8 font-inter">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-sm">
           <p>Student data not available. Please login again.</p>
           <button
             onClick={() => router.push('/login')}
-            className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+            className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
           >
             Go to Login
           </button>
@@ -311,48 +292,34 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-8 font-inter">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 mb-8 text-white">
-        <div className="flex justify-between items-start">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-2">
               Welcome back, {studentInfo.name}!
             </h1>
-            <p className="opacity-90">
+            <p className="text-gray-600">
               {upcomingExams.length > 0 
                 ? `You have ${upcomingExams.length} upcoming exam${upcomingExams.length !== 1 ? 's' : ''}` 
                 : 'No upcoming exams'}
             </p>
           </div>
-          <button 
-            onClick={refreshData}
-            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-md text-sm transition-colors"
-            disabled={loading}
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg shadow-sm">
           <p>{error}</p>
-          <button 
-            onClick={refreshData}
-            className="mt-2 text-sm text-red-700 hover:underline"
-            disabled={loading}
-          >
-            Try again
-          </button>
         </div>
       )}
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Link href="/student/exams" passHref>
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start">
-            <div className="bg-blue-100 p-3 rounded-lg mr-4">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md hover:bg-gray-50 transition-all cursor-pointer flex items-start">
+            <div className="bg-blue-100 p-3 rounded-md mr-4">
               <FiBook className="text-blue-600 text-xl" />
             </div>
             <div>
@@ -363,8 +330,8 @@ const StudentDashboard = () => {
         </Link>
 
         <Link href="/student/results" passHref>
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start">
-            <div className="bg-green-100 p-3 rounded-lg mr-4">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md hover:bg-gray-50 transition-all cursor-pointer flex items-start">
+            <div className="bg-green-100 p-3 rounded-md mr-4">
               <FiAward className="text-green-600 text-xl" />
             </div>
             <div>
@@ -373,25 +340,13 @@ const StudentDashboard = () => {
             </div>
           </div>
         </Link>
-
-        <Link href="/student/profile" passHref>
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start">
-            <div className="bg-purple-100 p-3 rounded-lg mr-4">
-              <FiUser className="text-purple-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">Profile</h2>
-              <p className="mt-1 text-gray-600 text-sm">Update your information</p>
-            </div>
-          </div>
-        </Link>
       </div>
 
       {/* Upcoming Exams Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-            <FiCalendar className="mr-2 text-blue-600" />
+            <FiCalendar className="mr-2 text-blue-600 text-xl" />
             Upcoming Exams
           </h2>
           <Link href="/student/exams" passHref>
@@ -402,28 +357,24 @@ const StudentDashboard = () => {
         {upcomingExams.length > 0 ? (
           <div className="space-y-4">
             {upcomingExams.map((exam) => (
-              <div key={exam.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex justify-between items-center">
+              <div key={exam.id} className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div>
-                    <h3 className="font-medium text-gray-800">{exam.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h3 className="font-semibold text-gray-800">{exam.name}</h3>
+                    <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
                       <span className="flex items-center">
-                        <FiClock className="mr-1" /> {formatDuration(exam.duration)}
+                        <FiClock className="mr-1 text-gray-500" /> {formatDuration(exam.duration)}
                       </span>
-                      {exam.description && (
-                        <span className="block mt-1 text-gray-500 text-sm line-clamp-1">
-                          {exam.description}
-                        </span>
-                      )}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-600">{formatDate(exam.date)}</p>
-                    <Link href={`/student/exams/${exam.id}`} passHref>
-                      <button className="mt-2 px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
-                        View Details
-                      </button>
-                    </Link>
+                    <p className="text-sm text-gray-600">{formatDate(exam.date)}</p>
+                    <button
+                      onClick={() => handleViewDetails(exam)}
+                      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-base font-semibold shadow-sm"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
               </div>
@@ -431,9 +382,9 @@ const StudentDashboard = () => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No upcoming exams scheduled</p>
+            <p className="text-gray-600 mb-4">No upcoming exams scheduled</p>
             <Link href="/student/exams" passHref>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-base font-semibold shadow-sm">
                 Browse Available Exams
               </button>
             </Link>
@@ -442,10 +393,10 @@ const StudentDashboard = () => {
       </div>
 
       {/* Recent Results Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-            <FiBarChart2 className="mr-2 text-green-600" />
+            <FiBarChart2 className="mr-2 text-green-600 text-xl" />
             Recent Results
           </h2>
           <Link href="/student/results" passHref>
@@ -456,19 +407,17 @@ const StudentDashboard = () => {
         {recentResults.length > 0 ? (
           <div className="space-y-4">
             {recentResults.map((result) => (
-              <div key={result.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex justify-between items-center">
+              <div key={result.id} className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div>
-                    <h3 className="font-medium text-gray-800">{result.exam}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {formatDate(result.date)}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <h3 className="font-semibold text-gray-800">{result.exam}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{formatDate(result.date)}</p>
+                    <p className="text-sm text-gray-600 mt-1">
                       Score: {result.obtainedMarks}/{result.totalMarks}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                  <div className="text-right flex flex-col items-end gap-2">
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
                       result.score >= 80 
                         ? 'bg-green-100 text-green-800' 
                         : result.score >= 50 
@@ -478,7 +427,7 @@ const StudentDashboard = () => {
                       {result.score}%
                     </span>
                     <Link href={`/student/results/${result.examId}`} passHref>
-                      <button className="mt-2 px-4 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 transition-colors">
+                      <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm">
                         View Details
                       </button>
                     </Link>
@@ -489,15 +438,45 @@ const StudentDashboard = () => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No results available yet</p>
+            <p className="text-gray-600 mb-4">No results available yet</p>
             <Link href="/student/exams" passHref>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-base font-semibold shadow-sm">
                 Take an Exam
               </button>
             </Link>
           </div>
         )}
       </div>
+
+      {/* Exam Description Modal */}
+      {isModalOpen && selectedExam && (
+        <div className="fixed inset-0 flex justify-center items-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">{selectedExam.name}</h3>
+              <button
+                onClick={closeModal}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close modal"
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+            <div className="mb-4">
+              <p className="text-gray-600 font-semibold">Description:</p>
+              <p className="text-gray-700 mt-1">{selectedExam.description}</p>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={closeModal}
+                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
