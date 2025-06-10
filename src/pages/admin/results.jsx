@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { databases, storage, Query } from '../../utils/appwrite';
-import { Eye, Search, Download, RefreshCw, X } from 'lucide-react';
+import { Eye, Search, Download, RefreshCw, X, Send } from 'lucide-react';
 
 const BUCKET_ID = 'questions';
 
@@ -213,11 +213,12 @@ const ResultsAnalysisPage = () => {
         "Percentage": `${result.percentage.toFixed(1)}%`,
         "Status": result.status,
         "Date": result.createdDate,
+        "Published": result.publish ? "Published" : "Not Published"
       }));
 
       if (format === "csv") {
         const { Parser } = await import("json2csv");
-        const fields = ["Student Name", "Student Email", "Exam Name", "Score", "Percentage", "Status", "Date"];
+        const fields = ["Student Name", "Student Email", "Exam Name", "Score", "Percentage", "Status", "Date", "Published"];
         const parser = new Parser({ fields });
         const csv = parser.parse(exportData);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -258,16 +259,13 @@ const ResultsAnalysisPage = () => {
     const matchesSearch = 
       result.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       result.examName.toLowerCase().includes(searchTerm.toLowerCase());
-
     const matchesStatus = 
       statusFilter === 'All' ||
       (statusFilter === 'Pass' && result.status === 'passed') ||
       (statusFilter === 'Fail' && result.status === 'failed');
-
     const matchesExam = 
       examFilter === 'All' ||
       result.examId === examFilter;
-
     return matchesSearch && matchesStatus && matchesExam;
   });
 
@@ -281,7 +279,6 @@ const ResultsAnalysisPage = () => {
         setIsExportMenuOpen(false);
       }
     };
-
     if (isExportMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
@@ -315,6 +312,12 @@ const ResultsAnalysisPage = () => {
               disabled={loading}
             >
               <RefreshCw size={18} /> Refresh
+            </button>
+            <button
+              onClick={() => window.location.href = '/admin/publish-results'}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2 text-base font-semibold shadow-sm"
+            >
+              <Send size={18} /> Publish Results
             </button>
             <div className="relative" ref={exportButtonRef}>
               <button
@@ -352,7 +355,7 @@ const ResultsAnalysisPage = () => {
         )}
 
         <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="relative flex-grow sm:ml-0 w-full sm:w-auto">
+          <div className="relative flex-grow sm:ml-0Evans w-full sm:w-auto">
             <label htmlFor="main_search" className="sr-only">Search Results</label>
             <input
               type="text"
@@ -428,6 +431,7 @@ const ResultsAnalysisPage = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Published</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -454,6 +458,13 @@ const ResultsAnalysisPage = () => {
                     <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell whitespace-nowrap">
                       {result.createdDate}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        result.publish ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {result.publish ? 'Published' : 'Not Published'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <ActionButtons result={result} />
                     </td>
@@ -467,7 +478,7 @@ const ResultsAnalysisPage = () => {
         {viewModalOpen && viewingResult && (
           <div className="fixed inset-0 flex justify-center items-start z-50 bg-black bg-opacity-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full m-4">
-              <h3 className="text-xl font-bold mb-4">Result Details - {viewingResult.examName}</h3>
+              <h3 className="text-xl font-bold mb-4">Result Details - { viewingResult.examName}</h3>
               
               <div className="bg-white p-6 rounded-lg shadow mb-6">
                 <h2 className="text-lg font-semibold mb-4">Result Summary</h2>

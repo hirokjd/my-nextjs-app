@@ -691,7 +691,7 @@ const ExamsPage = () => {
   const getExamStatus = (examDate) => {
     const now = new Date();
     const examDateObj = new Date(examDate);
-    return examDateObj < now ? "Expired" : "Active";
+    return examDateObj < now ? "Expired" : "";
   };
 
   const indexOfLastQuestion = currentPage * questionsPerPage;
@@ -810,8 +810,8 @@ const ExamsPage = () => {
                   key={examData.$id}
                   onClick={() => viewExamDetails(examData)}
                   className={`border rounded-lg border-gray-100 p-3 sm:p-4 cursor-pointer transition-all hover:shadow-md ${
-                    getExamStatus(examData.exam_date) === "Expired" 
-                      ? "bg-gray-100 opacity-70" 
+                    getExamStatus(examData.exam_date) === "" 
+                      ? "bg-white" 
                       : "bg-white"
                   }`}
                 >

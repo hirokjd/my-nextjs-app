@@ -334,23 +334,17 @@ const ExamEnrollment = () => {
                         console.error(`Exam NOT FOUND for ID: ${examLookupKey} (Enrollment: ${enrollment.$id})`);
                     }
 
-                    // Determine appearance status based on the 'status' field from Appwrite
-                    // which now directly stores "appeared" or "not_appeared".
-                    const rawAppwriteStatus = enrollment.status; // This will be "appeared" or "not_appeared"
-                    let appearance_status_display = "Not Appeared"; // Default
+                    const rawAppwriteStatus = enrollment.status; 
+                    let appearance_status_display = "Not Appeared"; 
                     if (rawAppwriteStatus === 'appeared') {
                         appearance_status_display = "Appeared";
                     } else if (rawAppwriteStatus === 'not_appeared') {
                         appearance_status_display = "Not Appeared";
                     }
-                    // If enrollment.status can have other values (e.g. "Upcoming"), 
-                    // and you want "Not Appeared" for those, this logic is fine.
-                    // If enrollment.status will *only* ever be "appeared" or "not_appeared", 
-                    // then the default could be removed or adjusted.
-
+                    
                     return {
                         id: enrollment.$id,
-                        enrollment_id: enrollment.enrollment_id,
+                        enrollment_id: enrollment.enrollment_id, // Keep for other uses (export, view modal)
                         student_id: student?.$id || studentLookupKey || 'N/A',
                         student_name: student?.name || 'Unknown Student',
                         student_email: student?.email || '',
@@ -363,7 +357,7 @@ const ExamEnrollment = () => {
                             : 'N/A',
                         raw_enrolled_at: enrollment.enrolled_at,
                         appearance_status_display,
-                        raw_appwrite_status: rawAppwriteStatus, 
+                        raw_appwrite_status: rawAppwriteStatus,
                     };
                 }
             );
@@ -823,11 +817,18 @@ const ExamEnrollment = () => {
         const matchesSearchTerm = mainSearchTerm === "" ||
             enrollment.student_name.toLowerCase().includes(mainSearchTerm.toLowerCase()) ||
             enrollment.exam_name.toLowerCase().includes(mainSearchTerm.toLowerCase()) ||
-            (enrollment.enrollment_id && enrollment.enrollment_id.toLowerCase().includes(mainSearchTerm.toLowerCase()));
+            (enrollment.enrollment_id && enrollment.enrollment_id.toLowerCase().includes(mainSearchTerm.toLowerCase())); // Keep enrollment_id search capability
         return matchesExamFilter && matchesSearchTerm;
     });
 
     const allEnrollmentsSelected = filteredEnrollments.length > 0 && selectedEnrollments.size === filteredEnrollments.length;
+
+    const truncateText = (text, maxLength) => {
+        if (text.length <= maxLength) {
+            return text;
+        }
+        return text.substring(0, maxLength) + "...";
+    };
 
     const ActionButtons = ({ enrollment }) => (
         <div className="flex items-center gap-1 sm:gap-2">
@@ -981,7 +982,7 @@ const ExamEnrollment = () => {
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">Exam Date</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled At</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider md:table-cell">Enrollment ID</th>
+                                    {/* Enrollment ID column header removed */}
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -999,14 +1000,19 @@ const ExamEnrollment = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{enrollment.student_name}</div>
-                                                <div className="text-xs text-gray-500 sm:hidden">{enrollment.exam_name} ({enrollment.exam_date})</div>
+                                                {/* Small screen details for exam name and date */}
+                                                <div className="text-xs text-gray-500 sm:hidden" title={enrollment.exam_name}>
+                                                    {truncateText(enrollment.exam_name, 20)} ({enrollment.exam_date}) {/* Slightly shorter for mobile view */}
+                                                </div>
                                                 <div className="text-xs text-gray-500 sm:hidden">Status: {enrollment.appearance_status_display}</div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 sm:table-cell">{enrollment.exam_name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 sm:table-cell" title={enrollment.exam_name}>
+                                                {truncateText(enrollment.exam_name, 25)}
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 sm:table-cell">{enrollment.exam_date}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{enrollment.appearance_status_display}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{enrollment.enrolled_at}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 md:table-cell">{enrollment.enrollment_id}</td>
+                                            {/* Enrollment ID column data removed */}
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                                 <ActionButtons enrollment={enrollment} />
                                             </td>
@@ -1014,7 +1020,8 @@ const ExamEnrollment = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="text-center py-10 text-gray-500 text-lg">No enrollments found for the selected filter.</td>
+                                        {/* Adjusted colSpan */}
+                                        <td colSpan="7" className="text-center py-10 text-gray-500 text-lg">No enrollments found for the selected filter.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -2750,7 +2757,6 @@ const Students = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  // const [showRawData, setShowRawData] = useState(false);
 
   const exportButtonRef = useRef(null);
 
@@ -3144,7 +3150,12 @@ const Students = () => {
 
   const truncateCourseName = (name) => {
     if (!name || name === "Not assigned") return name;
-    return name.length > 55 ? `${name.slice(0, 55)}...` : name;
+    return name.length > 18 ? `${name.slice(0, 15)}...` : name;
+  };
+
+  const truncateStudentId = (id) => {
+    if (!id) return id;
+    return id.length > 15 ? `${id.slice(0, 12)}...` : id;
   };
 
   return (
@@ -3298,7 +3309,7 @@ const Students = () => {
                           <div className="text-xs text-gray-500 sm:hidden">Status: {student.status}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{student.email}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{student.student_id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{truncateStudentId(student.student_id)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{truncateCourseName(student.course_name)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">
                           <span
@@ -3622,7 +3633,7 @@ const AdminCoursesPage = () => {
     setError(null);
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID, 
+        DATABASE_ID,
         COURSES_COLLECTION_ID,
         [Query.orderDesc("$createdAt")]
       );
@@ -3870,6 +3881,12 @@ const AdminCoursesPage = () => {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  const truncateText = (text, maxLength) => {
+    if (!text) return "";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
       <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
@@ -3985,7 +4002,9 @@ const AdminCoursesPage = () => {
                   {displayedCourses.map((course, index) => (
                     <tr key={course.$id} className={`hover:bg-gray-50 transition-colors ${course.status === 'inactive' ? 'bg-gray-100 opacity-70' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{indexOfFirstCourse + index + 1}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{course.course_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" title={course.course_name}>
+                        {truncateText(course.course_name, 18)}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{course.course_description || "N/A"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.credit === null || course.credit === undefined ? "N/A" : course.credit}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -5488,7 +5507,7 @@ const ExamsPage = () => {
   const getExamStatus = (examDate) => {
     const now = new Date();
     const examDateObj = new Date(examDate);
-    return examDateObj < now ? "Expired" : "Active";
+    return examDateObj < now ? "Expired" : "";
   };
 
   const indexOfLastQuestion = currentPage * questionsPerPage;

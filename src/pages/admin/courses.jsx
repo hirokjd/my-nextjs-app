@@ -56,7 +56,7 @@ const AdminCoursesPage = () => {
     setError(null);
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID, 
+        DATABASE_ID,
         COURSES_COLLECTION_ID,
         [Query.orderDesc("$createdAt")]
       );
@@ -304,6 +304,12 @@ const AdminCoursesPage = () => {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  const truncateText = (text, maxLength) => {
+    if (!text) return "";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
       <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
@@ -419,7 +425,9 @@ const AdminCoursesPage = () => {
                   {displayedCourses.map((course, index) => (
                     <tr key={course.$id} className={`hover:bg-gray-50 transition-colors ${course.status === 'inactive' ? 'bg-gray-100 opacity-70' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{indexOfFirstCourse + index + 1}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{course.course_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" title={course.course_name}>
+                        {truncateText(course.course_name, 18)}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{course.course_description || "N/A"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.credit === null || course.credit === undefined ? "N/A" : course.credit}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">

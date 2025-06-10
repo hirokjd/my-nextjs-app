@@ -779,7 +779,7 @@ const ExamTakingPage = () => {
                         : isAnswered
                         ? 'bg-green-500'
                         : isMarked
-                        ? 'bg-yellow-500'
+                        ? 'bg-yellow-600'
                         : 'bg-gray-400'
                     }`}
                     title={`Question ${index + 1}: ${

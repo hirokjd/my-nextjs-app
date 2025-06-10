@@ -20,7 +20,6 @@ const Students = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  // const [showRawData, setShowRawData] = useState(false);
 
   const exportButtonRef = useRef(null);
 
@@ -414,7 +413,12 @@ const Students = () => {
 
   const truncateCourseName = (name) => {
     if (!name || name === "Not assigned") return name;
-    return name.length > 55 ? `${name.slice(0, 55)}...` : name;
+    return name.length > 18 ? `${name.slice(0, 15)}...` : name;
+  };
+
+  const truncateStudentId = (id) => {
+    if (!id) return id;
+    return id.length > 15 ? `${id.slice(0, 12)}...` : id;
   };
 
   return (
@@ -568,7 +572,7 @@ const Students = () => {
                           <div className="text-xs text-gray-500 sm:hidden">Status: {student.status}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{student.email}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{student.student_id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{truncateStudentId(student.student_id)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{truncateCourseName(student.course_name)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">
                           <span

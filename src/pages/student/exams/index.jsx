@@ -198,6 +198,15 @@ const StudentExamsPage = () => {
     }
   };
 
+  const isExamStartable = (exam) => {
+    if (exam.status !== 'active') return false;
+    if (!exam.exam_date) return true; // If no exam_date, assume it can be started
+    const examDate = new Date(exam.exam_date);
+    const currentTime = new Date();
+    const tenMinutesBefore = new Date(examDate.getTime() - 10 * 60 * 1000); // 10 minutes before exam
+    return currentTime >= tenMinutesBefore;
+  };
+
   const handleStartExam = (examId) => {
     console.log('Starting exam with ID:', examId);
     router.push(`/student/exams/${examId}`);
@@ -302,14 +311,14 @@ const StudentExamsPage = () => {
                 <div className="mt-4">
                   <button
                     onClick={() => handleStartExam(exam.$id)}
-                    disabled={exam.status !== 'active'}
+                    disabled={!isExamStartable(exam)}
                     className={`w-full px-4 py-2 rounded-md text-base font-semibold shadow-sm text-white ${
-                      exam.status === 'active'
+                      isExamStartable(exam)
                         ? 'bg-blue-600 hover:bg-blue-700'
                         : 'bg-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    {exam.status === 'active' ? 'Start Exam' : 'Exam Not Available'}
+                    {isExamStartable(exam) ? 'Start Exam' : 'Exam Not Available'}
                   </button>
                 </div>
               </div>
