@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { account } from "../../utils/appwrite";
 import { User, Lock } from "lucide-react";
 
@@ -70,8 +70,8 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
-      <div className="container mx-auto max-w-2xl">
+    <div className="w-full">
+      <div className="max-w-2xl">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-6">Settings</h2>
 
         {/* Error/Success Alerts */}

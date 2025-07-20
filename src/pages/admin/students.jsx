@@ -1,6 +1,8 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef, Suspense } from "react";
 import { databases, account, ID, Query } from "../../utils/appwrite";
-import { Plus, Edit, Trash2, Eye, Search, X, Download } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
+import { React as ReactLazy } from "react";
+import { lazy } from "react";
 import Modal from "../../components/Modal";
 
 const STUDENTS_PER_PAGE = 20;
@@ -422,8 +424,8 @@ const Students = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
-      <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <div className="w-full">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Manage Students</h2>
           <div className="flex flex-wrap gap-2">
@@ -653,6 +655,7 @@ const Students = () => {
         )}
 
         {modalOpen && (
+          <Suspense fallback={<div className="flex justify-center items-center h-32">Loading...</div>}>
           <Modal
             title={editingStudent ? "Edit Student" : "Add New Student"}
             onClose={closeModal}
@@ -664,6 +667,7 @@ const Students = () => {
             onChange={handleInputChange}
             customPosition={modalPosition}
           />
+          </Suspense>
         )}
 
         {viewModalOpen && viewingStudent && (

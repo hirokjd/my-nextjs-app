@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { databases } from "../../utils/appwrite"; // Assuming this path is correct
 import { Plus, Edit, Trash2, Eye, Search, X, Download } from "lucide-react";
 import { Query } from "appwrite";
+import Modal from "../../components/Modal";
+import { formatDateTimeUTC, formatDateUTC } from "../../utils/date";
 
 // Custom Confirmation Dialog Component
 const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel" }) => {
@@ -196,10 +198,8 @@ const ExamEnrollment = () => {
                         exam_id: exam?.$id || examLookupKey || 'N/A',
                         exam_name: exam?.name || 'Unknown Exam',
                         exam_description: exam?.description || '',
-                        exam_date: exam?.exam_date ? new Date(exam.exam_date).toLocaleDateString() : 'N/A',
-                        enrolled_at: enrollment.enrolled_at
-                            ? new Date(enrollment.enrolled_at).toLocaleString()
-                            : 'N/A',
+                        exam_date: exam?.exam_date ? formatDateUTC(exam.exam_date) : 'N/A',
+                        enrolled_at: enrollment.enrolled_at ? formatDateTimeUTC(enrollment.enrolled_at) : 'N/A',
                         raw_enrolled_at: enrollment.enrolled_at,
                         appearance_status_display,
                         raw_appwrite_status: rawAppwriteStatus,
@@ -400,10 +400,9 @@ const ExamEnrollment = () => {
             student_id: enrollment.student_id,
             exam_id: enrollment.exam_id,
             enrolled_at: enrollment.raw_enrolled_at
-                ? new Date(enrollment.raw_enrolled_at)
-                    .toISOString()
+                ? formatDateTimeUTC(enrollment.raw_enrolled_at)
                     .slice(0, 16)
-                : new Date().toISOString().slice(0, 16),
+                : formatDateTimeUTC(new Date()).slice(0, 16),
         });
         setModalOpen(true);
     };
@@ -496,7 +495,7 @@ const ExamEnrollment = () => {
             return;
         }
 
-        const enrolledAt = new Date().toISOString();
+        const enrolledAt = formatDateTimeUTC(new Date());
         let successCount = 0;
         let failCount = 0;
         let skippedCount = 0;
@@ -702,8 +701,8 @@ const ExamEnrollment = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
-            <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
+        <div className="w-full">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Exam Enrollments</h2>
                     <div className="flex flex-wrap gap-2">
@@ -875,77 +874,42 @@ const ExamEnrollment = () => {
                 )}
                 
                 {modalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                        <div ref={modalRef} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-xl transform transition-all duration-300 scale-100 opacity-100">
-                            <h3 className="text-2xl font-bold text-gray-800 mb-5">{editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}</h3>
-                            <form className="mx-auto space-y-4">
-                                <div>
-                                    <label htmlFor="student_id" className="block text-sm font-semibold text-gray-700 mb-1">Student</label>
-                                    <select 
-                                        id="student_id" 
-                                        name="student_id"
-                                        value={formData.student_id} 
-                                        onChange={(e) => handleInputChange(e, "student_id")} 
-                                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
-                                        required
-                                    >
-                                        <option value="">Select Student</option>
-                                        {students.map((student) => (
-                                            <option key={student.$id} value={student.$id}>
-                                                {student.name} ({student.email})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="exam_id" className="block text-sm font-semibold text-gray-700 mb-1">Exam</label>
-                                    <select 
-                                        id="exam_id" 
-                                        name="exam_id"
-                                        value={formData.exam_id} 
-                                        onChange={(e) => handleInputChange(e, "exam_id")} 
-                                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
-                                        required
-                                    >
-                                        <option value="">Select Exam</option>
-                                        {exams.map((exam) => (
-                                            <option key={exam.$id} value={exam.$id}>
-                                                {exam.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="enrolled_at" className="block text-sm font-semibold text-gray-700 mb-1">Enrollment Date</label>
-                                    <input 
-                                        type="datetime-local" 
-                                        id="enrolled_at" 
-                                        name="enrolled_at"
-                                        value={formData.enrolled_at} 
-                                        onChange={(e) => handleInputChange(e, "enrolled_at")} 
-                                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-gray-50" 
-                                        required 
-                                    />
-                                </div>
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <button 
-                                        type="button" 
-                                        onClick={closeModal} 
-                                        className="bg-gray-500 text-white px-5 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={handleSave} 
-                                        className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-md"
-                                    >
-                                        {editingEnrollment ? "Update" : "Save"}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <Modal
+                        title={editingEnrollment ? "Edit Enrollment" : "Add Enrollment"}
+                        onClose={closeModal}
+                        onSave={handleSave}
+                        initialData={formData}
+                        fields={[
+                            {
+                                name: "student_id",
+                                label: "Student",
+                                type: "select",
+                                required: true,
+                                options: students.map(s => ({ value: s.$id, label: `${s.name} (${s.email})` })),
+                                placeholder: "Select Student"
+                            },
+                            {
+                                name: "exam_id",
+                                label: "Exam",
+                                type: "select",
+                                required: true,
+                                options: exams.map(e => ({ value: e.$id, label: e.name })),
+                                placeholder: "Select Exam"
+                            },
+                            {
+                                name: "enrolled_at",
+                                label: "Enrollment Date",
+                                type: "datetime-local",
+                                required: true
+                            }
+                        ]}
+                        isLoading={loading}
+                        error={error}
+                        onChange={e => {
+                            const { name, value } = e.target;
+                            setFormData(prev => ({ ...prev, [name]: value }));
+                        }}
+                    />
                 )}
                 
                 {viewModalOpen && viewingEnrollment && (

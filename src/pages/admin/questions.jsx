@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { databases, storage, ID } from "../../utils/appwrite";
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import { databases, storage, ID, account, Query } from "../../utils/appwrite";
 import { Plus, Eye, Edit, Trash2, Search, X, Download } from "lucide-react";
+import { Modal } from "../../components/Modal";
 
 const BUCKET_ID = "questions";
 
@@ -332,8 +333,8 @@ const QuestionsPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
-      <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <div className="w-full">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Exam Enrollments</h2>
           <div className="flex flex-wrap gap-2">
@@ -460,141 +461,19 @@ const QuestionsPage = () => {
         )}
 
         {modalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
-            <div
-              ref={modalRef}
-              className="bg-white p-6 rounded-lg shadow-xl w-[1200px] max-h-[90vh] overflow-y-auto"
-            >
-              <h3 className="text-xl font-semibold mb-4">
-                {editingQuestion ? "Edit Question" : "Add Question"}
-              </h3>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Question ID</label>
-                  <input
-                    className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={formData.question_id}
-                    onChange={(e) => handleInputChange(e, "question_id")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Created By</label>
-                  <input
-                    className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={formData.created_by}
-                    onChange={(e) => handleInputChange(e, "created_by")}
-                  />
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
-                <textarea
-                  className="w-full border rounded px-3 py-2 h-32 focus:ring-blue-500 focus:border-blue-500"
-                  value={formData.text}
-                  onChange={(e) => handleInputChange(e, "text")}
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question Image</label>
-                <input
-                  type="file"
-                  className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
-                  onChange={(e) => handleImageUpload(e.target.files[0], "image_id")}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-                  <input
-                    className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="easy, medium, hard"
-                    value={formData.difficulty}
-                    onChange={(e) => handleInputChange(e, "difficulty")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                  <input
-                    className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="comma separated"
-                    value={formData.tags}
-                    onChange={(e) => handleInputChange(e, "tags")}
-                  />
-                </div>
-              </div>
-
-              <h4 className="text-lg font-medium mb-3">Options:</h4>
-              <div className="space-y-4">
-                {formData.options_text.map((option, index) => (
-                  <div key={index} className="flex items-start gap-4 p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Option {index + 1}
-                      </label>
-                      <textarea
-                        className="w-full border rounded px-3 py-2 h-20 focus:ring-blue-500 focus:border-blue-500"
-                        value={option}
-                        onChange={(e) => handleInputChange(e, "options_text", index)}
-                      />
-                      <div className="mt-2">
-                        <label className="inline-flex items-center">
-                          <input
-                            type="radio"
-                            name="correct_answer"
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                            checked={formData.correct_answer === index}
-                            onChange={() =>
-                              setFormData({ ...formData, correct_answer: index })
-                            }
-                          />
-                          <span className="ml-2 text-sm text-gray-700">Correct Answer</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="w-48">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Option Image</label>
-                      <input
-                        type="file"
-                        className="block w-full text-sm text-gray-500
-                          file:mr-2 file:py-1 file:px-2
-                          file:rounded file:border-0
-                          file:text-xs file:font-semibold
-                          file:bg-blue-50 file:text-blue-700
-                          hover:file:bg-blue-100"
-                        onChange={(e) =>
-                          handleImageUpload(e.target.files[0], "options_image", index)
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition-colors"
-                  onClick={closeModal}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                  onClick={handleSave}
-                >
-                  {editingQuestion ? "Update" : "Save"}
-                </button>
-              </div>
-            </div>
-          </div>
+          <Suspense fallback={<div className="flex justify-center items-center h-32">Loading...</div>}>
+            <Modal
+              title={editingQuestion ? "Edit Question" : "Add New Question"}
+              onClose={closeModal}
+              onSave={handleSave}
+              initialData={formData}
+              fields={questionModalFields}
+              isLoading={loading}
+              error={error}
+              onChange={handleInputChange}
+              customPosition={questionModalPosition}
+            />
+          </Suspense>
         )}
 
         {viewModalOpen && viewingQuestion && (

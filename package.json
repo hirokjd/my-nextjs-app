@@ -7,16 +7,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "rm -rf .next out",
+    "analyze": "ANALYZE=true npm run build"
   },
   "dependencies": {
     "appwrite": "^17.0.1",
-    "bcryptjs": "^3.0.2",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.4.3",
     "json2csv": "^6.0.0-alpha.2",
     "lucide-react": "^0.475.0",
-    "next": "15.1.7",
+    "next": "^15.3.5",
     "papaparse": "^5.5.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -25,9 +30,15 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
+    "eslint-config-prettier": "^9.0.0",
     "postcss": "^8",
-    "tailwindcss": "^3.4.1"
+    "prettier": "^3.0.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.0.0"
   }
 }

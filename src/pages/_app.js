@@ -1,48 +1,50 @@
 import "../styles/globals.css";
 import { useRouter } from "next/router";
 import AdminLayout from "../components/AdminLayout";
-import StudentLayout from "../components/StudentLayout";
 import Navbar from "../components/Navbar";
-import { useState } from "react";
+import { AuthProvider } from "../hooks/useAuth";
+import { useState, useCallback, useMemo } from "react";
+import StudentHeader from "../components/StudentHeader";
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const isAdminRoute = router.pathname.startsWith("/admin");
   const isStudentRoute = router.pathname.startsWith("/student");
+  const isPublicRoute = !isAdminRoute && !isStudentRoute;
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  // Optimized toggle function with useCallback
+  const toggleSidebar = useCallback(() => {
+    console.log('Toggle sidebar clicked, current state:', sidebarOpen);
+    setSidebarOpen(prev => !prev);
+  }, [sidebarOpen]);
 
-  if (isAdminRoute) {
-    return (
-      <div className="flex flex-col min-h-screen">
+  // Memoize layout components to prevent unnecessary re-renders
+  const adminLayout = useMemo(() => (
+    <>
         <Navbar isAdmin={true} toggleSidebar={toggleSidebar} />
-        <div className="flex flex-1 pt-16"> {/* Added pt-16 to account for navbar */}
           <AdminLayout sidebarOpen={sidebarOpen} toggleSidebar={toggleSidebar}>
             <Component {...pageProps} />
           </AdminLayout>
-        </div>
-      </div>
-    );
-  }
+    </>
+  ), [sidebarOpen, toggleSidebar, Component, pageProps]);
 
-  if (isStudentRoute) {
+  // Minimal student layout: just Navbar and Component
+  const studentLayout = useMemo(() => (
+    <>
+      <StudentHeader />
+      <Component {...pageProps} />
+    </>
+  ), [Component, pageProps]);
+
     return (
-      <div className="flex flex-col min-h-screen">
-        <Navbar isAdmin={false} toggleSidebar={toggleSidebar} />
-        <div className="flex flex-1 pt-16"> {/* Added pt-16 to account for navbar */}
-          <StudentLayout sidebarOpen={sidebarOpen} toggleSidebar={toggleSidebar}>
-            <Component {...pageProps} />
-          </StudentLayout>
-        </div>
-      </div>
+    <AuthProvider>
+      {isAdminRoute && adminLayout}
+      {isStudentRoute && studentLayout}
+      {isPublicRoute && <Component {...pageProps} />}
+    </AuthProvider>
     );
-  }
-
-  return <Component {...pageProps} />;
 }
 
 export default MyApp;

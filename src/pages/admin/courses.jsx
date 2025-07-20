@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { Plus, Edit, Trash2, BookOpen, Eye, Search, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import { databases, ID, account, Query } from "../../utils/appwrite";
-import Modal from "../../components/Modal";
+import { formatDateTimeUTC, formatDateUTC } from "../../utils/date";
+const Modal = React.lazy(() => import("../../components/Modal"));
 
 const COURSES_PER_PAGE = 20;
 
@@ -247,8 +248,8 @@ const AdminCoursesPage = () => {
         Credits: course.credit === null || course.credit === undefined ? "N/A" : course.credit,
         Status: course.status || "active",
         "Created By": userNames[course.created_by] || course.created_by || "N/A",
-        "Created At": new Date(course.$createdAt).toLocaleString(),
-        "Last Updated": new Date(course.$updatedAt).toLocaleString(),
+        "Created At": formatDateTimeUTC(course.$createdAt),
+        "Last Updated": formatDateTimeUTC(course.$updatedAt),
       }));
       if (format === "csv") {
         const { Parser } = await import("json2csv");
@@ -311,8 +312,8 @@ const AdminCoursesPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-inter">
-      <div className="container mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <div className="w-full">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Manage Courses</h2>
           <div className="flex flex-wrap gap-2">
@@ -497,6 +498,7 @@ const AdminCoursesPage = () => {
         ) : null }
 
         {isModalOpen && (
+          <Suspense fallback={<div className="flex justify-center items-center h-32">Loading...</div>}>
           <Modal
             title={editingCourse ? "Edit Course" : "Add New Course"}
             onClose={closeModal}
@@ -508,6 +510,7 @@ const AdminCoursesPage = () => {
             onChange={handleInputChange}
             customPosition={courseModalPosition}
           />
+          </Suspense>
         )}
 
         {isViewModalOpen && viewingCourse && (
@@ -526,8 +529,8 @@ const AdminCoursesPage = () => {
                 <div><label className="block text-sm font-medium text-gray-700">Credits:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingCourse.credit === null || viewingCourse.credit === undefined ? "N/A" : viewingCourse.credit}</p></div>
                 <div><label className="block text-sm font-medium text-gray-700">Status:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded capitalize">{viewingCourse.status || "active"}</p></div>
                 <div><label className="block text-sm font-medium text-gray-700">Created By:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{userNames[viewingCourse.created_by] || viewingCourse.created_by || "N/A"}</p></div>
-                <div><label className="block text-sm font-medium text-gray-700">Created At:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{new Date(viewingCourse.$createdAt).toLocaleString()}</p></div>
-                <div><label className="block text-sm font-medium text-gray-700">Last Updated:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{new Date(viewingCourse.$updatedAt).toLocaleString()}</p></div>
+                <div><label className="block text-sm font-medium text-gray-700">Created At:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{formatDateTimeUTC(viewingCourse.$createdAt)}</p></div>
+                <div><label className="block text-sm font-medium text-gray-700">Last Updated:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{formatDateTimeUTC(viewingCourse.$updatedAt)}</p></div>
               </div>
               <div className="mt-6 flex justify-end">
                 <button onClick={closeViewModal} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors">Close</button>
