@@ -353,7 +353,6 @@ setError(error.message || "Failed to load dashboard data. Please try again.");
             {recentActivity.map((activity, idx) => (
               <li key={idx} className="flex items-center space-x-2">
                 <span className="text-gray-700">{activity.message}</span>
-                <span className="text-gray-400 text-xs">({formatDateTimeUTC(activity.time)})</span>
               </li>
             ))}
           </ul>

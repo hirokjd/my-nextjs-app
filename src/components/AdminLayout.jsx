@@ -18,6 +18,7 @@ import {
   Shield,
   Monitor,
   UserCog,
+  UserCheck, // Replaced ClipboardUser with UserCheck
 } from "lucide-react";
 
 const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
@@ -40,7 +41,7 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
       items: [
         { name: "Manage Courses", path: "/admin/courses", icon: BookOpen, description: "Course administration" },
         { name: "Manage Students", path: "/admin/students", icon: Users, description: "Student management" },
-        { name: "Manage Examiners", path: "/admin/controller", icon: UserCog, description: "Examiner accounts" }, // Changed from Controllers to Examiners
+        { name: "Manage Examiners", path: "/admin/controller", icon: UserCog, description: "Examiner accounts" },
         { name: "Manage Exams", path: "/admin/exams", icon: FileText, description: "Exam configuration" },
         { name: "Manage Questions", path: "/admin/questions", icon: HelpCircle, description: "Question bank" },
       ]
@@ -51,6 +52,7 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
       items: [
         { name: "Live Monitoring", path: "/admin/monitoring", icon: Monitor, description: "Real-time student activity" },
         { name: "Exam Enrollments", path: "/admin/exam-enrollments", icon: FileCheck, description: "Student enrollments" },
+        { name: "Exam Students", path: "/admin/exam-students", icon: UserCheck, description: "View and print enrolled students" }, // Changed icon to UserCheck
         { name: "Results & Analytics", path: "/admin/results", icon: BarChart2, description: "Performance analytics" },
         { name: "Manage Notifications", path: "/admin/notifications", icon: Bell, description: "System notifications" },
       ]
@@ -114,11 +116,11 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
       <motion.aside
         ref={sidebarRef}
         initial={false}
-        animate={{ 
+        animate={{
           x: sidebarOpen ? 0 : -256,
         }}
-        transition={{ 
-          type: "tween", 
+        transition={{
+          type: "tween",
           duration: 0.2,
           ease: "easeInOut"
         }}
@@ -134,7 +136,7 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Admin Panel</h2>
-                <p className="text-xs text-gray-500">Examination Management Console</p> {/* Updated text */}
+                <p className="text-xs text-gray-500">Examination Management Console</p>
               </div>
             </div>
           </div>
@@ -152,8 +154,8 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
                     <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
                     <span>{section.title}</span>
                   </span>
-                  <ChevronRight 
-                    size={14} 
+                  <ChevronRight
+                    size={14}
                     className={`transition-transform duration-150 ${
                       expandedSections.has(section.section) ? 'rotate-90' : ''
                     }`}
@@ -182,8 +184,8 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
                           >
                             <div className="flex items-center space-x-3">
                               <div className={`flex-shrink-0 ${
-                                isActivePath(item.path) 
-                                  ? "text-white" 
+                                isActivePath(item.path)
+                                  ? "text-white"
                                   : "text-gray-400 group-hover:text-gray-600"
                               }`}>
                                 <item.icon size={18} />
@@ -242,8 +244,8 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
       {/* Optimized Main Content with CSS transforms */}
       <main
         className={`flex-1 min-h-[calc(100vh-4rem)] transition-all duration-200 ease-in-out ${
-          sidebarOpen 
-            ? "bg-gradient-to-br from-gray-50 to-gray-100" 
+          sidebarOpen
+            ? "bg-gradient-to-br from-gray-50 to-gray-100"
             : "bg-white"
         }`}
         style={{

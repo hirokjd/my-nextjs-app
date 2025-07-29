@@ -157,6 +157,25 @@ const PublishResultsPage = () => {
               );
               await Promise.all(updatePromises);
               
+              // =================================================================
+              // ADDED CODE BLOCK: Update exam status to 'completed'
+              // =================================================================
+              try {
+                await databases.updateDocument(
+                    databaseId,
+                    examsCollectionId,
+                    selectedExamId,
+                    { status: 'completed' }
+                );
+              } catch (examUpdateError) {
+                  console.error("Failed to update exam status to completed:", examUpdateError);
+                  // This is a non-critical error, so we'll just log it and continue.
+                  // The primary goal of publishing results was successful.
+              }
+              // =================================================================
+              // END OF ADDED CODE
+              // =================================================================
+
               const studentMap = new Map(students.map(s => [s.$id, s.name]));
               const updatedResultsWithStudentNames = allResultsForExam.map(res => ({
                   ...res,
@@ -167,7 +186,7 @@ const PublishResultsPage = () => {
         
               setDialogContent({
                   title: "Success",
-                  message: `Successfully published ${allResultsForExam.length} results for "${selectedExamName}".`,
+                  message: `Successfully published ${allResultsForExam.length} results for "${selectedExamName}". The exam status has been updated to 'completed'.`,
                   onConfirm: () => setIsDialogOpen(false),
                   isConfirmation: false
               });

@@ -58,6 +58,7 @@ const Students = () => {
       try {
         const coursesRes = await databases.listDocuments(DATABASE_ID, COURSES_COLLECTION_ID, [
           Query.equal("status", "active"),
+          Query.orderDesc("$createdAt"),
           Query.limit(100),
         ]);
         setCourses(coursesRes.documents);

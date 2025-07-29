@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { Plus, Edit, Trash2, BookOpen, Eye, Search, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import { databases, ID, account, Query } from "../../utils/appwrite";
-import { formatDateTimeUTC, formatDateUTC } from "../../utils/date";
+import { formatDateTimeUTC, formatDateUTC, formatDateTimeIST } from "../../utils/date";
 const Modal = React.lazy(() => import("../../components/Modal"));
 
 const COURSES_PER_PAGE = 20;
@@ -529,8 +529,8 @@ const AdminCoursesPage = () => {
                 <div><label className="block text-sm font-medium text-gray-700">Credits:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{viewingCourse.credit === null || viewingCourse.credit === undefined ? "N/A" : viewingCourse.credit}</p></div>
                 <div><label className="block text-sm font-medium text-gray-700">Status:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded capitalize">{viewingCourse.status || "active"}</p></div>
                 <div><label className="block text-sm font-medium text-gray-700">Created By:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{userNames[viewingCourse.created_by] || viewingCourse.created_by || "N/A"}</p></div>
-                <div><label className="block text-sm font-medium text-gray-700">Created At:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{formatDateTimeUTC(viewingCourse.$createdAt)}</p></div>
-                <div><label className="block text-sm font-medium text-gray-700">Last Updated:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{formatDateTimeUTC(viewingCourse.$updatedAt)}</p></div>
+                <div><label className="block text-sm font-medium text-gray-700">Created At:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{formatDateTimeIST(viewingCourse.$createdAt)}</p></div>
+                <div><label className="block text-sm font-medium text-gray-700">Last Updated:</label><p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{formatDateTimeIST(viewingCourse.$updatedAt)}</p></div>
               </div>
               <div className="mt-6 flex justify-end">
                 <button onClick={closeViewModal} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors">Close</button>

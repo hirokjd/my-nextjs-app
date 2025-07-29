@@ -17,6 +17,26 @@ export function formatDateTimeUTC(dateString) {
 }
 
 /**
+ * Format a date/time string as 'YYYY-MM-DD HH:mm' in IST (UTC+5:30)
+ */
+export function formatDateTimeIST(dateString) {
+  if (!dateString) return "N/A";
+  const d = new Date(dateString);
+  if (isNaN(d)) return "Invalid Date";
+  
+  // Convert to IST (UTC+5:30)
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  const istDate = new Date(d.getTime() + istOffset);
+  
+  const year = istDate.getUTCFullYear();
+  const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(istDate.getUTCDate()).padStart(2, '0');
+  const hour = String(istDate.getUTCHours()).padStart(2, '0');
+  const minute = String(istDate.getUTCMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute} IST`;
+}
+
+/**
  * Format a date string as 'YYYY-MM-DD' in UTC
  */
 export function formatDateUTC(dateString) {

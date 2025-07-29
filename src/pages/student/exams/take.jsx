@@ -251,10 +251,11 @@ const TakeExam = () => {
 
     useEffect(() => {
         if (!loading && exam) {
+            enterFullscreen(); // Request fullscreen automatically
             const cleanup = setupSecurity();
             return cleanup;
         }
-    }, [loading, exam, setupSecurity]);
+    }, [loading, exam, setupSecurity, enterFullscreen]);
 
     const saveResponse = useCallback(async (questionId, newAnswer, newMarkedStatus) => {
         if (isSaving.current || !studentInfo) return;
@@ -288,84 +289,84 @@ const TakeExam = () => {
         }
     }, [responseDocs, studentInfo, examId]);
 
-	const handleSubmit = useCallback(async (autoSubmit = false) => {
-		if (!autoSubmit && !showSubmitConfirm) {
-			setShowSubmitConfirm(true);
-			return;
-		}
-		setIsSubmitting(true);
-		setShowSubmitConfirm(false);
-	
-		try {
-			const currentQuestionId = questions[currentQuestionIndex]?.$id;
-			if (currentQuestionId) {
-				await saveResponse(currentQuestionId, answers[currentQuestionId], markedForReview[currentQuestionId]);
-			}
-	
-			let score = 0;
-			let total_marks = 0;
-	
-			examQuestionMappings.forEach(mapping => {
-				const questionId = resolveRelationshipId(mapping.question_id);
-				const question = questions.find(q => q.$id === questionId);
-				if (question) {
-					total_marks += mapping.marks;
-					if (answers[questionId] === question.correct_answer) {
-						score += mapping.marks;
-					}
-				}
-			});
-	
-			const percentage = total_marks > 0 ? (score / total_marks) * 100 : 0;
-			const endTime = new Date();
-			const time_taken = Math.round((endTime - examStartTime) / (1000 * 60));
-	
-			await databases.createDocument(DATABASE_ID, RESULTS_COLLECTION_ID, ID.unique(), {
-				result_id: ID.unique(),
-				student_id: studentInfo.studentId,
-				exam_id: examId,
-				score, total_marks, percentage,
-				status: percentage >= 30 ? 'passed' : 'failed',
-				time_taken,
-				attempted_at: examStartTime.toISOString(),
-				completed_at: endTime.toISOString(),
-				created_at: endTime.toISOString()
-			});
-	
-			const enrollmentsRes = await databases.listDocuments(DATABASE_ID, ENROLLMENTS_COLLECTION_ID, [Query.limit(5000)]);
-			const studentEnrollment = enrollmentsRes.documents.find(enrollment =>
-				resolveRelationshipId(enrollment.student_id) === studentInfo.studentId &&
-				resolveRelationshipId(enrollment.exam_id) === examId
-			);
-	
-			if (studentEnrollment) {
-				await databases.updateDocument(DATABASE_ID, ENROLLMENTS_COLLECTION_ID, studentEnrollment.$id, { status: 'appeared' });
-			}
+    const handleSubmit = useCallback(async (autoSubmit = false) => {
+        if (!autoSubmit && !showSubmitConfirm) {
+            setShowSubmitConfirm(true);
+            return;
+        }
+        setIsSubmitting(true);
+        setShowSubmitConfirm(false);
+    
+        try {
+            const currentQuestionId = questions[currentQuestionIndex]?.$id;
+            if (currentQuestionId) {
+                await saveResponse(currentQuestionId, answers[currentQuestionId], markedForReview[currentQuestionId]);
+            }
+    
+            let score = 0;
+            let total_marks = 0;
+    
+            examQuestionMappings.forEach(mapping => {
+                const questionId = resolveRelationshipId(mapping.question_id);
+                const question = questions.find(q => q.$id === questionId);
+                if (question) {
+                    total_marks += mapping.marks;
+                    if (answers[questionId] === question.correct_answer) {
+                        score += mapping.marks;
+                    }
+                }
+            });
+    
+            const percentage = total_marks > 0 ? (score / total_marks) * 100 : 0;
+            const endTime = new Date();
+            const time_taken = Math.round((endTime - examStartTime) / (1000 * 60));
+    
+            await databases.createDocument(DATABASE_ID, RESULTS_COLLECTION_ID, ID.unique(), {
+                result_id: ID.unique(),
+                student_id: studentInfo.studentId,
+                exam_id: examId,
+                score, total_marks, percentage,
+                status: percentage >= 30 ? 'passed' : 'failed',
+                time_taken,
+                attempted_at: examStartTime.toISOString(),
+                completed_at: endTime.toISOString(),
+                created_at: endTime.toISOString()
+            });
+    
+            const enrollmentsRes = await databases.listDocuments(DATABASE_ID, ENROLLMENTS_COLLECTION_ID, [Query.limit(5000)]);
+            const studentEnrollment = enrollmentsRes.documents.find(enrollment =>
+                resolveRelationshipId(enrollment.student_id) === studentInfo.studentId &&
+                resolveRelationshipId(enrollment.exam_id) === examId
+            );
+    
+            if (studentEnrollment) {
+                await databases.updateDocument(DATABASE_ID, ENROLLMENTS_COLLECTION_ID, studentEnrollment.$id, { status: 'appeared' });
+            }
 
-			// =================================================================
-			// FIXED CODE BLOCK: Ensure violation counts are saved on submit
-			// =================================================================
-			if (attemptId) {
-				await databases.updateDocument(DATABASE_ID, ATTEMPTS_COLLECTION_ID, attemptId, { 
-					status: 'submitted',
-					tab_switch_count: violationCount.tabSwitch,
-					full_screen_exit_count: violationCount.fullscreenExit,
-					copy_paste_events: violationCount.copyPaste
-				});
-			}
-			// =================================================================
-			// END OF FIX
-			// =================================================================
-	
-			alert("Exam submitted successfully!");
-			router.push('/student');
-	
-		} catch (err) {
-			setError("Failed to submit exam. Please contact support.");
-			console.error("Submission error:", err);
-			setIsSubmitting(false);
-		}
-	}, [questions, answers, studentInfo, examId, router, examQuestionMappings, examStartTime, showSubmitConfirm, saveResponse, currentQuestionIndex, attemptId, violationCount]);
+            // =================================================================
+            // FIXED CODE BLOCK: Ensure violation counts are saved on submit
+            // =================================================================
+            if (attemptId) {
+                await databases.updateDocument(DATABASE_ID, ATTEMPTS_COLLECTION_ID, attemptId, { 
+                    status: 'submitted',
+                    tab_switch_count: violationCount.tabSwitch,
+                    full_screen_exit_count: violationCount.fullscreenExit,
+                    copy_paste_events: violationCount.copyPaste
+                });
+            }
+            // =================================================================
+            // END OF FIX
+            // =================================================================
+    
+            alert("Exam submitted successfully!");
+            router.push('/student');
+    
+        } catch (err) {
+            setError("Failed to submit exam. Please contact support.");
+            console.error("Submission error:", err);
+            setIsSubmitting(false);
+        }
+    }, [questions, answers, studentInfo, examId, router, examQuestionMappings, examStartTime, showSubmitConfirm, saveResponse, currentQuestionIndex, attemptId, violationCount]);
 
     useEffect(() => {
         if (timeLeft === 0) handleSubmit(true);

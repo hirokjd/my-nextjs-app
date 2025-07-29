@@ -6,7 +6,7 @@ import { account } from '../../utils/appwrite';
 import ReactDOM from 'react-dom'; 
 import { lazy } from 'react'; 
 import { Suspense as ReactSuspense } from 'react'; 
-import { formatDateTimeUTC, formatDateUTC } from "../../utils/date";
+import { formatDateTimeUTC, formatDateUTC, formatDateTimeIST } from "../../utils/date";
 
 const Modal = lazy(() => import("../../components/Modal"));
 
@@ -156,13 +156,10 @@ const ExamsPage = () => {
     );
 
     const sortedExams = examsWithControllers.sort((a, b) => { 
-      const now = new Date(); 
-      const aIsExpired = a.exam_date_obj < now; 
-      const bIsExpired = b.exam_date_obj < now; 
-       
-      if (aIsExpired && !bIsExpired) return 1; 
-      if (!aIsExpired && bIsExpired) return -1; 
-      return a.exam_date_obj - b.exam_date_obj; 
+      // First sort by creation date (recently created first)
+      const aCreatedAt = new Date(a.$createdAt);
+      const bCreatedAt = new Date(b.$createdAt);
+      return bCreatedAt - aCreatedAt;
     }); 
 
     setExams(sortedExams); 
@@ -1462,7 +1459,7 @@ const ExamsPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4"> 
                   <div> 
                     <label className="block text-sm font-semibold text-gray-700">Exam Date:</label> 
-                    <p className="mt-1 text-sm text-gray-800 sm:mt-0.5">{formatDateTimeUTC(selectedExamDetail.exam_date)}</p> 
+                    <p className="mt-1 text-sm text-gray-800 sm:mt-0.5">{formatDateTimeIST(selectedExamDetail.exam_date)}</p> 
                   </div> 
                   <div> 
                     <label className="block text-sm font-semibold text-gray-700">Duration:</label> 
@@ -1489,7 +1486,7 @@ const ExamsPage = () => {
                   </div> 
                   <div> 
                     <label className="block text-sm font-semibold text-gray-700">Last Modified:</label> 
-                    <p className="mt-1 text-sm text-gray-800 sm:mt-0.5">{formatDateTimeUTC(selectedExamDetail.modified_at)}</p> 
+                    <p className="mt-1 text-sm text-gray-800 sm:mt-0.5">{formatDateTimeIST(selectedExamDetail.modified_at)}</p> 
                   </div> 
                   <div className="md:col-span-2"> 
                     <label className="block text-sm font-semibold text-gray-700">Document ID:</label> 
