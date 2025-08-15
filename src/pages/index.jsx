@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { GraduationCap, FileText, Award, Bell } from 'lucide-react';
+import { GraduationCap, FileText, Award, Bell, CheckCircle } from 'lucide-react';
 import { databases, Query } from '../utils/appwrite';
 
 const HomePage = () => {
@@ -11,13 +11,13 @@ const HomePage = () => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2,
+        staggerChildren: 0.1,
       },
     },
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
   };
 
   const [hasPublishedResults, setHasPublishedResults] = useState(false);
@@ -52,13 +52,13 @@ const HomePage = () => {
     <>
       <Head>
         <title>NIELIT Tezpur EC - Online Exam System</title>
-        <meta name="description" content="Empowering education with the NIELIT Tezpur EC Online Exam System. Access exams, view results, and manage your academic journey seamlessly." />
+        <meta name="description" content="NIELIT Tezpur EC Online Exam System - Secure exam platform for students and administrators." />
         <link rel="icon" href="https://mimitmalout.ac.in/NIELIT.png" />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         {/* Header */}
-        <header className="w-full bg-[#f8fafc] border-b border-[#e2e8f0] py-4 fixed top-0 z-50">
+        <header className="w-full bg-white border-b border-gray-200 py-4 fixed top-0 z-50 shadow-sm">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -70,12 +70,12 @@ const HomePage = () => {
                 <img
                   src="https://mimitmalout.ac.in/NIELIT.png"
                   alt="NIELIT Tezpur EC Logo"
-                  className="h-12 w-12"
+                  className="h-10 w-10"
                   onError={handleImageError}
                 />
               </a>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#1e293b]">
-                NIELIT Tezpur EC Exam Portal
+              <h1 className="text-xl font-semibold text-gray-900">
+                NIELIT Tezpur EC
               </h1>
             </motion.div>
             <motion.div
@@ -85,7 +85,7 @@ const HomePage = () => {
             >
               <Link
                 href="/login"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium sm:text-base"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 Login
               </Link>
@@ -94,199 +94,171 @@ const HomePage = () => {
         </header>
 
         {/* Hero Section */}
-        <section className="pt-24 pb-12 bg-gradient-to-b from-blue-50 to-gray-50">
+        <section className="pt-20 pb-16 bg-gradient-to-br from-blue-50 via-white to-gray-50">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <motion.h2
               variants={itemVariants}
               initial="hidden"
               animate="visible"
-              className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-800 mb-6"
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6"
             >
-              Welcome to NIELIT Tezpur EC Online Exam System
+              Online Exam System
             </motion.h2>
             <motion.p
               variants={itemVariants}
               initial="hidden"
               animate="visible"
-              className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto mb-8"
+              className="text-xl text-gray-600 max-w-2xl mx-auto mb-8"
             >
-              A secure and user-friendly platform designed by NIELIT Tezpur EC to manage exams, track results, and empower students and administrators.
+              Secure and efficient exam platform for NIELIT Tezpur EC students
             </motion.p>
+            
+            {/* Published Results Banner */}
+            {!loadingCheck && hasPublishedResults && (
+              <motion.div
+                variants={itemVariants}
+                initial="hidden"
+                animate="visible"
+                className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8 max-w-md mx-auto"
+              >
+                <div className="flex items-center justify-center space-x-3 mb-3">
+                  <CheckCircle className="text-green-600" size={24} />
+                  <span className="text-green-800 font-semibold">Results Published</span>
+                </div>
+                <p className="text-green-700 text-sm mb-4">
+                  New exam results are now available for viewing
+                </p>
+                <Link
+                  href="/results"
+                  className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  View Results
+                </Link>
+              </motion.div>
+            )}
+
             <motion.div
               variants={itemVariants}
               initial="hidden"
               animate="visible"
-              className="flex justify-center space-x-4"
+              className="flex flex-col sm:flex-row justify-center items-center gap-4"
             >
               <Link
                 href="/login"
-                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-lg font-medium"
+                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-semibold shadow-lg"
               >
-                Get Started
+                Access Portal
               </Link>
-              <a
-                href="#features"
-                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors text-lg font-medium"
-              >
-                Learn More
-              </a>
             </motion.div>
           </div>
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-12 bg-white">
+        <section className="py-16 bg-white">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <motion.h2
               variants={itemVariants}
               initial="hidden"
               animate="visible"
-              className="text-3xl font-bold text-gray-800 text-center mb-10"
+              className="text-3xl font-bold text-gray-900 text-center mb-12"
             >
-              Why Choose Our Platform?
+              Platform Features
             </motion.h2>
             <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
             >
               <motion.div
                 variants={itemVariants}
-                className="p-6 bg-gray-50 rounded-lg shadow hover:shadow-md transition-shadow"
+                className="text-center p-6"
               >
-                <GraduationCap size={40} className="text-blue-600 mb-4 mx-auto" />
-                <h3 className="text-xl font-semibold text-gray-800 text-center">Easy Exam Access</h3>
-                <p className="mt-2 text-gray-600 text-center">
-                  Students can view and take exams effortlessly with real-time status updates.
+                <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <GraduationCap size={32} className="text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Exam Access</h3>
+                <p className="text-gray-600">
+                  Take exams securely with real-time monitoring and instant feedback
                 </p>
               </motion.div>
               <motion.div
                 variants={itemVariants}
-                className="p-6 bg-gray-50 rounded-lg shadow hover:shadow-md transition-shadow"
+                className="text-center p-6"
               >
-                <FileText size={40} className="text-blue-600 mb-4 mx-auto" />
-                <h3 className="text-xl font-semibold text-gray-800 text-center">Detailed Results</h3>
-                <p className="mt-2 text-gray-600 text-center">
-                  Access comprehensive result analytics with question-by-question breakdowns.
+                <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <FileText size={32} className="text-green-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Results & Analytics</h3>
+                <p className="text-gray-600">
+                  Detailed performance analysis with comprehensive result breakdowns
                 </p>
               </motion.div>
               <motion.div
                 variants={itemVariants}
-                className="p-6 bg-gray-50 rounded-lg shadow hover:shadow-md transition-shadow"
+                className="text-center p-6"
               >
-                <Award size={40} className="text-blue-600 mb-4 mx-auto" />
-                <h3 className="text-xl font-semibold text-gray-800 text-center">Certificates</h3>
-                <p className="mt-2 text-gray-600 text-center">
-                  Earn and download certificates upon successful exam completion.
-                </p>
-              </motion.div>
-              <motion.div
-                variants={itemVariants}
-                className="p-6 bg-gray-50 rounded-lg shadow hover:shadow-md transition-shadow"
-              >
-                <Bell size={40} className="text-blue-600 mb-4 mx-auto" />
-                <h3 className="text-xl font-semibold text-gray-800 text-center">Real-Time Notifications</h3>
-                <p className="mt-2 text-gray-600 text-center">
-                  Stay updated with instant notifications for exam schedules and results.
+                <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <Award size={32} className="text-purple-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Certificates</h3>
+                <p className="text-gray-600">
+                  Download certificates upon successful completion of exams
                 </p>
               </motion.div>
             </motion.div>
           </div>
         </section>
 
-        {/* About Section */}
-        <section id="about" className="py-12 bg-gray-50">
+        {/* Quick Actions */}
+        <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
-              <motion.div
-                variants={itemVariants}
-                initial="hidden"
-                animate="visible"
-                className="lg:w-1/2"
-              >
-                <a href="https://www.nielit.gov.in/tezpur/" target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="https://mimitmalout.ac.in/NIELIT.png"
-                    alt="NIELIT Tezpur EC"
-                    className="w-48 h-48 mx-auto lg:mx-0"
-                    onError={handleImageError}
-                  />
-                </a>
-              </motion.div>
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="lg:w-1/2"
-              >
-                <motion.h2
-                  variants={itemVariants}
-                  className="text-3xl font-bold text-gray-800 mb-4"
-                >
-                  About NIELIT Tezpur EC
-                </motion.h2>
-                <motion.p
-                  variants={itemVariants}
-                  className="text-gray-600 mb-4"
-                >
-                  The National Institute of Electronics & Information Technology (NIELIT) Tezpur Extension Centre is committed to advancing technical education through innovative solutions.
-                  Our Online Exam System provides a secure, efficient platform for conducting exams, managing student records, and delivering results.
-                </motion.p>
-                <motion.p
-                  variants={itemVariants}
-                  className="text-gray-600 mb-6"
-                >
-                  Explore our programs and initiatives at the official NIELIT Tezpur EC website.
-                </motion.p>
-                <motion.div variants={itemVariants}>
-                  <a
-                    href="https://www.nielit.gov.in/tezpur/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-lg font-medium"
-                  >
-                    Visit NIELIT Tezpur EC
-                  </a>
-                </motion.div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        {/* Call-to-Action Section */}
-        <section className="py-12 bg-blue-600 text-white">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <motion.h2
               variants={itemVariants}
               initial="hidden"
               animate="visible"
-              className="text-3xl font-bold mb-4"
+              className="text-3xl font-bold text-gray-900 text-center mb-12"
             >
-              Ready to Begin?
+              Quick Actions
             </motion.h2>
-            <motion.p
-              variants={itemVariants}
+            <motion.div
+              variants={containerVariants}
               initial="hidden"
               animate="visible"
-              className="text-lg max-w-2xl mx-auto mb-6"
+              className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto"
             >
-              Join the NIELIT Tezpur EC community. Login now to access your exams and dashboard.
-            </motion.p>
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-4">
-              <Link
-                href="/login"
-                className="px-6 py-3 bg-white text-blue-600 rounded-md hover:bg-gray-100 transition-colors text-lg font-medium"
-              >
-                Login Now
-              </Link>
+              <motion.div variants={itemVariants}>
+                <Link
+                  href="/login"
+                  className="block p-8 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-blue-100 rounded-lg p-3">
+                      <GraduationCap size={24} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Student Login</h3>
+                      <p className="text-gray-600">Access your exams and view results</p>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+              
               {!loadingCheck && hasPublishedResults && (
                 <motion.div variants={itemVariants}>
                   <Link
                     href="/results"
-                    className="px-6 py-3 bg-transparent border-2 border-white text-white rounded-md hover:bg-white hover:text-blue-600 transition-colors text-lg font-medium"
+                    className="block p-8 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200"
                   >
-                    View Published Results
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-green-100 rounded-lg p-3">
+                        <CheckCircle size={24} className="text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">View Results</h3>
+                        <p className="text-gray-600">Check published exam results</p>
+                      </div>
+                    </div>
                   </Link>
                 </motion.div>
               )}
@@ -295,31 +267,30 @@ const HomePage = () => {
         </section>
 
         {/* Footer */}
-        <footer className="w-full py-6 bg-[#f8fafc] border-t border-[#e2e8f0]">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <motion.div
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              <p className="text-gray-600 text-sm mb-2">
-                © {new Date().getFullYear()} NIELIT Tezpur EC. All rights reserved.
-              </p>
-              <div className="flex justify-center space-x-4 text-sm text-gray-500 mb-2">
-                <Link href="/about" className="hover:text-blue-600">
-                  About
-                </Link>
-                <Link href="/contact" className="hover:text-blue-600">
+        <footer className="w-full py-8 bg-gray-900 text-white">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="flex items-center space-x-3 mb-4 md:mb-0">
+                <img
+                  src="https://mimitmalout.ac.in/NIELIT.png"
+                  alt="NIELIT Tezpur EC Logo"
+                  className="h-8 w-8"
+                  onError={handleImageError}
+                />
+                <span className="text-lg font-semibold">NIELIT Tezpur EC</span>
+              </div>
+              <div className="flex space-x-6 text-sm">
+                <a href="https://www.nielit.gov.in/tezpur/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-300 transition-colors">
+                  Official Website
+                </a>
+                <Link href="/contact" className="hover:text-blue-300 transition-colors">
                   Contact
                 </Link>
-                <Link href="/privacy" className="hover:text-blue-600">
-                  Privacy Policy
-                </Link>
-                <a href="https://www.nielit.gov.in/tezpur/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
-                  NIELIT Tezpur EC
-                </a>
               </div>
-            </motion.div>
+            </div>
+            <div className="border-t border-gray-800 mt-6 pt-6 text-center text-sm text-gray-400">
+              <p>© {new Date().getFullYear()} NIELIT Tezpur EC. All rights reserved.</p>
+            </div>
           </div>
         </footer>
       </div>

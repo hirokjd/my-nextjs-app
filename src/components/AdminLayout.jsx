@@ -52,8 +52,8 @@ const AdminLayout = ({ children, sidebarOpen, toggleSidebar }) => {
       items: [
         { name: "Live Monitoring", path: "/admin/monitoring", icon: Monitor, description: "Real-time student activity" },
         { name: "Exam Enrollments", path: "/admin/exam-enrollments", icon: FileCheck, description: "Student enrollments" },
-        { name: "Exam Students", path: "/admin/exam-students", icon: UserCheck, description: "View and print enrolled students" }, // Changed icon to UserCheck
-        { name: "Results & Analytics", path: "/admin/results", icon: BarChart2, description: "Performance analytics" },
+        { name: "Send Credentials", path: "/admin/exam-students", icon: UserCheck, description: "View and print enrolled students" }, // Changed icon to UserCheck
+        { name: "Results & Publish", path: "/admin/results", icon: BarChart2, description: "Performance analytics" },
         { name: "Manage Notifications", path: "/admin/notifications", icon: Bell, description: "System notifications" },
       ]
     },
